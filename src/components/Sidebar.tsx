@@ -2,7 +2,7 @@
 
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { LayoutDashboard, Users, Settings, ChevronLeft, ChevronRight, ShieldAlert, Calendar } from 'lucide-react';
+import { LayoutDashboard, Users, Settings, ChevronLeft, ChevronRight, ShieldAlert, Calendar, Coins } from 'lucide-react';
 import clsx from 'clsx';
 import { useState } from 'react';
 import { useSettings } from '@/store/settings';
@@ -34,6 +34,16 @@ const menuItems = [
       { name: 'World Boss', href: '/events/world-boss' },
       { name: 'GVG', href: '/events/gvg' },
       { name: 'TW', href: '/events/tw' },
+    ]
+  },
+  {
+    name: 'Bank Clã',
+    href: '/bank',
+    icon: Coins,
+    subItems: [
+      { name: 'Caixa Clã', href: '/bank/cash' },
+      { name: 'Fila 35k', href: '/bank/queue' },
+      { name: 'Retiradas', href: '/bank/withdrawals' },
     ]
   },
 ];
