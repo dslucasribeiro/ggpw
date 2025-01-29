@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react';
 import { supabase } from '@/lib/supabase';
 import { ChevronDown, ChevronUp, Plus, X } from 'lucide-react';
-import { format } from 'date-fns';
+import { format, parseISO } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import clsx from 'clsx';
 
@@ -147,7 +147,8 @@ export default function ConfirmedPlayers({ twId, twDate }: ConfirmedPlayersProps
     return 0;
   });
 
-  const formattedDate = format(new Date(twDate), 'dd/MM/yyyy', { locale: ptBR });
+  // Usar parseISO em vez de new Date para evitar problemas de fuso horário
+  const formattedDate = format(parseISO(twDate), 'dd/MM/yyyy', { locale: ptBR });
 
   return (
     <div>

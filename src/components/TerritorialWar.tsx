@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react';
 import { supabase } from '@/lib/supabase';
 import { Plus, X } from 'lucide-react';
-import { format, parseISO } from 'date-fns';
+import { format, parseISO, parse } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { useMask } from '@react-input/mask';
 import { usePathname } from 'next/navigation';
@@ -40,7 +40,7 @@ export default function TerritorialWar() {
         // Converter as datas para o formato local
         const formattedData = data?.map(tw => ({
           ...tw,
-          date: format(parseISO(tw.date), 'yyyy-MM-dd')
+          date: tw.date.split('T')[0] // Remove a parte do tempo para evitar problemas de fuso horário
         }));
 
         setTerritorialWars(formattedData || []);
@@ -63,8 +63,8 @@ export default function TerritorialWar() {
       if (!newTWDate) return;
 
       // Converter a data do formato DD/MM/YYYY para YYYY-MM-DD
-      const [day, month, year] = newTWDate.split('/');
-      const formattedDate = `${year}-${month}-${day}`;
+      const parsedDate = parse(newTWDate, 'dd/MM/yyyy', new Date());
+      const formattedDate = format(parsedDate, 'yyyy-MM-dd');
 
       const { data, error } = await supabase
         .from('territorial_wars')
@@ -76,7 +76,7 @@ export default function TerritorialWar() {
 
       const newTW = {
         ...data,
-        date: format(parseISO(data.date), 'yyyy-MM-dd')
+        date: data.date.split('T')[0] // Remove a parte do tempo para evitar problemas de fuso horário
       };
 
       setTerritorialWars([...territorialWars, newTW]);

@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { supabase } from '@/lib/supabase';
-import { Plus, X, ChevronDown, Settings, GripVertical } from 'lucide-react';
+import { Plus, X, ChevronDown, Settings, GripVertical, Download } from 'lucide-react';
 import * as Popover from '@radix-ui/react-popover';
 import * as Dialog from '@radix-ui/react-dialog';
 import clsx from 'clsx';
@@ -24,6 +24,8 @@ import {
   verticalListSortingStrategy
 } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
+import { format, parseISO } from 'date-fns';
+import { ptBR } from 'date-fns/locale';
 
 interface Player {
   id: number;
@@ -432,8 +434,8 @@ function ManageTablesDialog() {
 }
 
 export default function WarFormation() {
-  const [confirmedPlayers, setConfirmedPlayers] = useState<Player[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [confirmedPlayers, setConfirmedPlayers] = useState<Player[]>([]);
   const [showPlayerSelector, setShowPlayerSelector] = useState(false);
   const [selectedPosition, setSelectedPosition] = useState<{
     tableId: string;
@@ -462,54 +464,31 @@ export default function WarFormation() {
 
   const fetchAvailableTWs = async () => {
     setIsLoading(true);
-    // Fetch TWs that have confirmed players
-    const { data: confirmedTWs, error: confirmedError } = await supabase
-      .from('confirmed_players')
-      .select('tw_id');
 
-    if (confirmedError) {
-      console.error('Error fetching confirmed TWs:', confirmedError);
+    try {
+      // Fetch all TWs
+      const { data: allTWs, error: twError } = await supabase
+        .from('territorial_wars')
+        .select('id, date')
+        .order('date', { ascending: false });
+
+      if (twError) {
+        console.error('Error fetching TWs:', twError);
+        setIsLoading(false);
+        return;
+      }
+
+      const formattedTWs = allTWs.map(tw => ({
+        id: tw.id,
+        date: format(parseISO(tw.date.split('T')[0]), 'dd/MM/yyyy', { locale: ptBR })
+      }));
+
+      setAvailableTWs(formattedTWs);
       setIsLoading(false);
-      return;
-    }
-
-    // Get unique TW IDs from confirmed players
-    const confirmedTWIds = new Set(confirmedTWs.map(tw => tw.tw_id));
-
-    // Fetch all TWs
-    const { data: allTWs, error: twError } = await supabase
-      .from('territorial_wars')
-      .select('id, date')
-      .order('date', { ascending: false });
-
-    if (twError) {
-      console.error('Error fetching TWs:', twError);
+    } catch (error) {
+      console.error('Error:', error);
       setIsLoading(false);
-      return;
     }
-
-    // Filter TWs that have confirmed players
-    const filteredTWs = allTWs.filter(tw => confirmedTWIds.has(tw.id));
-
-    const formattedTWs = filteredTWs.map(tw => ({
-      id: tw.id,
-      date: new Date(tw.date).toLocaleDateString('pt-BR', {
-        day: '2-digit',
-        month: '2-digit',
-        year: 'numeric'
-      })
-    }));
-
-    setAvailableTWs(formattedTWs);
-
-    // Only set selected TW if we have available TWs
-    if (formattedTWs.length > 0) {
-      setSelectedTwId(formattedTWs[0].id);
-    } else {
-      setSelectedTwId(null);
-    }
-
-    setIsLoading(false);
   };
 
   const fetchConfirmedPlayers = async (twId: number) => {
@@ -555,6 +534,37 @@ export default function WarFormation() {
       console.error('Error:', error);
     } finally {
       setIsLoading(false);
+    }
+  };
+
+  const saveFormation = async (newFormation: FormationPlayer[]) => {
+    if (!selectedTwId) return;
+
+    try {
+      // Deletar formação existente
+      const { error: deleteError } = await supabase
+        .from('war_formation')
+        .delete()
+        .eq('tw_id', selectedTwId);
+
+      if (deleteError) throw deleteError;
+
+      // Salvar nova formação
+      const formationToSave = newFormation.map(player => ({
+        tw_id: selectedTwId,
+        table_name: player.table_name,
+        position: player.position,
+        player_id: player.player_id,
+        status: player.status
+      }));
+
+      const { error: saveError } = await supabase
+        .from('war_formation')
+        .insert(formationToSave);
+
+      if (saveError) throw saveError;
+    } catch (error) {
+      console.error('Erro ao salvar formação:', error);
     }
   };
 
@@ -611,11 +621,15 @@ export default function WarFormation() {
       if (error) throw error;
 
       // Update both states
-      setFormationPlayers([...formationPlayers, data]);
+      const newFormationPlayers = [...formationPlayers, data];
+      setFormationPlayers(newFormationPlayers);
       if (!existingConfirmed) {
         const playerData = data.player;
         setConfirmedPlayers([...confirmedPlayers, playerData]);
       }
+
+      // Save the formation
+      await saveFormation(newFormationPlayers);
     } catch (error) {
       console.error('Erro ao adicionar player:', error);
     }
@@ -637,9 +651,13 @@ export default function WarFormation() {
 
       if (error) throw error;
 
-      setFormationPlayers(formationPlayers.filter(p => 
+      const newFormationPlayers = formationPlayers.filter(p => 
         !(p.table_name === tableId && p.position === position && p.tw_id === selectedTwId)
-      ));
+      );
+      setFormationPlayers(newFormationPlayers);
+
+      // Save the formation
+      await saveFormation(newFormationPlayers);
     } catch (error) {
       console.error('Error removing player:', error);
     }
@@ -661,12 +679,16 @@ export default function WarFormation() {
 
       if (error) throw error;
 
-      setFormationPlayers(formationPlayers.map(p => {
+      const newFormationPlayers = formationPlayers.map(p => {
         if (p.table_name === tableId && p.position === position && p.tw_id === selectedTwId) {
           return { ...p, status };
         }
         return p;
-      }));
+      });
+      setFormationPlayers(newFormationPlayers);
+
+      // Save the formation
+      await saveFormation(newFormationPlayers);
     } catch (error) {
       console.error('Error updating status:', error);
     }
@@ -720,58 +742,41 @@ export default function WarFormation() {
     // setTableNames(tableNames.filter(name => name !== tableName));
   };
 
-  if (isLoading) {
-    return (
-      <div className="p-6">
-        <div className="text-gray-400">Carregando...</div>
-      </div>
-    );
-  }
-
   return (
     <div className="p-6">
       <div className="flex justify-between items-center mb-4">
         <div className="flex items-center gap-4">
           <h2 className="text-xl font-semibold text-gray-200">Formação da Guerra</h2>
-          {availableTWs.length > 0 ? (
-            <select
-              value={selectedTwId || ''}
-              onChange={(e) => setSelectedTwId(Number(e.target.value))}
-              className="bg-gray-800 text-white border border-gray-700 rounded px-3 py-1 text-sm"
-            >
-              {availableTWs.map((tw) => (
-                <option key={tw.id} value={tw.id}>
-                  TW {tw.date}
-                </option>
-              ))}
-            </select>
-          ) : (
-            <span className="text-sm text-gray-400">Nenhuma TW com jogadores confirmados</span>
-          )}
+          <select
+            value={selectedTwId || ''}
+            onChange={(e) => setSelectedTwId(e.target.value ? Number(e.target.value) : null)}
+            className="bg-gray-800 text-white border border-gray-700 rounded px-3 py-1 text-sm"
+          >
+            <option value="">Sem TW selecionada</option>
+            {availableTWs.map((tw) => (
+              <option key={tw.id} value={tw.id}>
+                TW {tw.date}
+              </option>
+            ))}
+          </select>
         </div>
         <ManageTablesDialog />
       </div>
 
-      {selectedTwId ? (
-        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4 gap-4">
-          {tableNames.map((tableName, index) => (
-            <FormationTable
-              key={`${tableName}-${index}`}
-              title={tableName}
-              players={formationPlayers.filter(p => p.table_name === tableName)}
-              confirmedPlayers={confirmedPlayers}
-              onAddPlayer={handleAddPlayer}
-              onRemovePlayer={handleRemovePlayer}
-              onUpdateStatus={handleUpdateStatus}
-              onUpdateTitle={handleUpdateTitle}
-            />
-          ))}
-        </div>
-      ) : (
-        <div className="text-center text-gray-400 mt-8">
-          Selecione uma TW para ver ou criar formações
-        </div>
-      )}
+      <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4 gap-4">
+        {tableNames.map((tableName, index) => (
+          <FormationTable
+            key={`${tableName}-${index}`}
+            title={tableName}
+            players={formationPlayers.filter(p => p.table_name === tableName)}
+            confirmedPlayers={confirmedPlayers}
+            onAddPlayer={handleAddPlayer}
+            onRemovePlayer={handleRemovePlayer}
+            onUpdateStatus={handleUpdateStatus}
+            onUpdateTitle={handleUpdateTitle}
+          />
+        ))}
+      </div>
     </div>
   );
 }
