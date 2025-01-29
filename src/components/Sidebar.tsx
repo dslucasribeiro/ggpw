@@ -2,7 +2,7 @@
 
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { LayoutDashboard, Users, Settings, ChevronLeft, ChevronRight, ShieldAlert } from 'lucide-react';
+import { LayoutDashboard, Users, Settings, ChevronLeft, ChevronRight, ShieldAlert, Calendar } from 'lucide-react';
 import clsx from 'clsx';
 import { useState } from 'react';
 import { useSettings } from '@/store/settings';
@@ -11,22 +11,47 @@ import SettingsDialog from './SettingsDialog';
 const menuItems = [
   { name: 'Dashboard', href: '/', icon: LayoutDashboard },
   { name: 'Players', href: '/players', icon: Users },
-];
-
-const warSubMenu = [
-  { name: 'Confirmados', href: '/war/confirmed' },
-  { name: 'Formação', href: '/war/formation' },
-  { name: 'Estratégia', href: '/war/strategy' },
+  { 
+    name: 'Guerra', 
+    href: '/war', 
+    icon: ShieldAlert,
+    subItems: [
+      { name: 'Confirmados', href: '/war/confirmed' },
+      { name: 'Formação', href: '/war/formation' },
+      { name: 'Estratégia', href: '/war/strategy' },
+    ]
+  },
+  { 
+    name: 'Eventos', 
+    href: '/events', 
+    icon: Calendar,
+    subItems: [
+      { name: 'Dashboard', href: '/events/dashboard' },
+      { name: 'Total Geral', href: '/events/total' },
+      { name: 'Artes Marciais', href: '/events/martial-arts' },
+      { name: 'Feras Sombrias', href: '/events/dark-beasts' },
+      { name: 'Tigres Celestiais', href: '/events/celestial-tigers' },
+      { name: 'World Boss', href: '/events/world-boss' },
+      { name: 'GVG', href: '/events/gvg' },
+      { name: 'TW', href: '/events/tw' },
+    ]
+  },
 ];
 
 export default function Sidebar() {
   const pathname = usePathname();
   const [isCollapsed, setIsCollapsed] = useState(false);
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
-  const [isWarMenuOpen, setIsWarMenuOpen] = useState(false);
+  const [openMenus, setOpenMenus] = useState<string[]>([]);
   const { clanName } = useSettings();
 
-  const isWarActive = pathname.startsWith('/war');
+  const toggleSubmenu = (menuName: string) => {
+    setOpenMenus(prev => 
+      prev.includes(menuName) 
+        ? prev.filter(name => name !== menuName)
+        : [...prev, menuName]
+    );
+  };
 
   return (
     <>
@@ -50,7 +75,7 @@ export default function Sidebar() {
               'font-semibold text-white truncate transition-all',
               isCollapsed ? 'text-sm text-center' : 'text-xl'
             )}>
-              {clanName}
+              {isCollapsed ? clanName?.slice(0, 3) : clanName}
             </h1>
           </div>
 
@@ -58,84 +83,65 @@ export default function Sidebar() {
           <div className="h-px bg-gradient-to-r from-transparent via-red-500 to-transparent opacity-75"></div>
 
           {/* Navigation */}
-          <nav className="flex-1 px-2 py-4 space-y-1">
-            {/* Regular Menu Items */}
+          <nav className="flex-1 space-y-1 px-2 py-4">
             {menuItems.map((item) => (
-              <Link
-                key={item.name}
-                href={item.href}
-                className={clsx(
-                  'flex items-center gap-3 px-3 py-2 text-sm rounded-lg transition-colors',
-                  pathname === item.href
-                    ? 'text-white bg-gray-800'
-                    : 'text-gray-400 hover:text-white hover:bg-gray-800',
-                  isCollapsed && 'justify-center px-2'
-                )}
-                title={isCollapsed ? item.name : undefined}
-              >
-                <item.icon className="w-5 h-5" />
-                {!isCollapsed && item.name}
-              </Link>
-            ))}
-
-            {/* Guerra Menu with Submenu */}
-            <div>
-              <div
-                onClick={() => !isCollapsed && setIsWarMenuOpen(!isWarMenuOpen)}
-                className={clsx(
-                  'flex items-center gap-3 px-3 py-2 text-sm rounded-lg transition-colors cursor-pointer select-none',
-                  isWarActive
-                    ? 'text-white bg-gray-800'
-                    : 'text-gray-400 hover:text-white hover:bg-gray-800',
-                  isCollapsed && 'justify-center px-2'
-                )}
-                role="button"
-                title={isCollapsed ? 'Guerra' : undefined}
-              >
-                <ShieldAlert className="w-5 h-5 flex-shrink-0" />
-                {!isCollapsed && (
-                  <span className="flex-1">Guerra</span>
-                )}
-              </div>
-
-              {/* Submenu */}
-              {!isCollapsed && isWarMenuOpen && (
-                <div className="space-y-1 mt-0.5">
-                  {warSubMenu.map((subItem) => (
-                    <Link
-                      key={subItem.name}
-                      href={subItem.href}
+              <div key={item.href}>
+                {item.subItems ? (
+                  // Menu com submenu
+                  <>
+                    <button
+                      onClick={() => toggleSubmenu(item.name)}
                       className={clsx(
-                        'flex items-center text-sm rounded-lg transition-colors pl-10 py-2',
-                        pathname === subItem.href
-                          ? 'text-white bg-gray-800'
-                          : 'text-gray-400 hover:text-white hover:bg-gray-800'
+                        'flex items-center w-full px-4 py-2 text-sm font-medium rounded-md',
+                        pathname.startsWith(item.href) ? 'text-white bg-gray-800' : 'text-gray-300 hover:text-white hover:bg-gray-800'
                       )}
                     >
-                      {subItem.name}
-                    </Link>
-                  ))}
-                </div>
-              )}
-            </div>
+                      <item.icon className={clsx('flex-shrink-0 w-6 h-6', isCollapsed ? '' : 'mr-3')} />
+                      {!isCollapsed && <span>{item.name}</span>}
+                    </button>
+
+                    {!isCollapsed && openMenus.includes(item.name) && (
+                      <div className="pl-11 pr-2 mt-2 space-y-1">
+                        {item.subItems.map((subItem) => (
+                          <Link
+                            key={subItem.href}
+                            href={subItem.href}
+                            className={clsx(
+                              'block px-3 py-2 text-sm rounded-md',
+                              pathname === subItem.href ? 'text-white bg-gray-800' : 'text-gray-300 hover:text-white hover:bg-gray-800'
+                            )}
+                          >
+                            {subItem.name}
+                          </Link>
+                        ))}
+                      </div>
+                    )}
+                  </>
+                ) : (
+                  // Menu sem submenu
+                  <Link
+                    href={item.href}
+                    className={clsx(
+                      'flex items-center w-full px-4 py-2 text-sm font-medium rounded-md',
+                      pathname === item.href ? 'text-white bg-gray-800' : 'text-gray-300 hover:text-white hover:bg-gray-800'
+                    )}
+                  >
+                    <item.icon className={clsx('flex-shrink-0 w-6 h-6', isCollapsed ? '' : 'mr-3')} />
+                    {!isCollapsed && <span>{item.name}</span>}
+                  </Link>
+                )}
+              </div>
+            ))}
           </nav>
 
           {/* Footer */}
           <div className="p-4 border-t border-gray-800">
             <button
               onClick={() => setIsSettingsOpen(true)}
-              className={clsx(
-                'flex items-center text-sm text-gray-400 hover:text-white group w-full',
-                isCollapsed ? 'justify-center' : 'justify-between'
-              )}
+              className="flex items-center w-full px-4 py-2 text-sm font-medium text-gray-300 rounded-md hover:text-white hover:bg-gray-800"
             >
-              {!isCollapsed && (
-                <div className="flex items-center gap-2">
-                  <span>PW</span>
-                  <span>Perfect World</span>
-                </div>
-              )}
-              <Settings className="w-5 h-5" />
+              <Settings className={clsx('flex-shrink-0 w-6 h-6', isCollapsed ? '' : 'mr-3')} />
+              {!isCollapsed && <span>Settings</span>}
             </button>
             {!isCollapsed && <div className="text-xs text-gray-500 mt-1">Guild Manager</div>}
           </div>
@@ -151,7 +157,10 @@ export default function Sidebar() {
       </div>
 
       {/* Settings Dialog */}
-      <SettingsDialog open={isSettingsOpen} onClose={() => setIsSettingsOpen(false)} />
+      <SettingsDialog
+        open={isSettingsOpen}
+        onClose={() => setIsSettingsOpen(false)}
+      />
     </>
   );
 }
