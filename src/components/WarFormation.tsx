@@ -80,6 +80,7 @@ function FormationTable({
   const [searchTerm, setSearchTerm] = useState('');
   const [isEditingTitle, setIsEditingTitle] = useState(false);
   const [newTitle, setNewTitle] = useState(title);
+  const [editingStatus, setEditingStatus] = useState<{ position: number, value: string } | null>(null);
 
   const handleTitleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -87,6 +88,21 @@ function FormationTable({
       onUpdateTitle(title, newTitle.trim());
     }
     setIsEditingTitle(false);
+  };
+
+  const handleStatusSubmit = (position: number) => {
+    if (editingStatus && editingStatus.position === position) {
+      onUpdateStatus(title, position, editingStatus.value);
+      setEditingStatus(null);
+    }
+  };
+
+  const handleStatusKeyDown = (e: React.KeyboardEvent, position: number) => {
+    if (e.key === 'Enter') {
+      handleStatusSubmit(position);
+    } else if (e.key === 'Escape') {
+      setEditingStatus(null);
+    }
   };
 
   const getBackgroundColor = (classe: string) => {
@@ -214,37 +230,27 @@ function FormationTable({
                 </td>
                 <td className="px-4 py-2">
                   {playerData && (
-                    <Popover.Root>
-                      <Popover.Trigger asChild>
-                        <button 
-                          className={clsx(
-                            "text-sm px-2 py-1 rounded",
-                            player?.status ? "text-white" : "text-gray-400 hover:text-white"
-                          )}
-                        >
-                          {player?.status || "Definir status"}
-                        </button>
-                      </Popover.Trigger>
-                      <Popover.Portal>
-                        <Popover.Content 
-                          className="bg-[#0B1120] rounded-lg shadow-xl border border-gray-700 w-48 p-2 z-50"
-                          sideOffset={5}
-                        >
-                          <div className="space-y-1">
-                            {STATUS_OPTIONS.map(status => (
-                              <button
-                                key={status}
-                                onClick={() => onUpdateStatus(title, index + 1, status)}
-                                className="w-full text-left px-2 py-1 text-sm text-gray-400 hover:text-white hover:bg-gray-800 rounded"
-                              >
-                                {status}
-                              </button>
-                            ))}
-                          </div>
-                          <Popover.Arrow className="fill-gray-700" />
-                        </Popover.Content>
-                      </Popover.Portal>
-                    </Popover.Root>
+                    editingStatus?.position === index + 1 ? (
+                      <input
+                        type="text"
+                        value={editingStatus.value}
+                        onChange={(e) => setEditingStatus({ position: index + 1, value: e.target.value })}
+                        onBlur={() => handleStatusSubmit(index + 1)}
+                        onKeyDown={(e) => handleStatusKeyDown(e, index + 1)}
+                        className="w-full bg-gray-800 text-white border border-gray-700 rounded px-2 py-1 text-sm focus:outline-none focus:ring-2 focus:ring-purple-500"
+                        autoFocus
+                      />
+                    ) : (
+                      <button
+                        onClick={() => setEditingStatus({ position: index + 1, value: player?.status || '' })}
+                        className={clsx(
+                          'text-sm px-2 py-1 rounded',
+                          player?.status ? 'text-white' : 'text-gray-400 hover:text-white'
+                        )}
+                      >
+                        {player?.status || 'Definir status'}
+                      </button>
+                    )
                   )}
                 </td>
                 <td className="px-4 py-2">
