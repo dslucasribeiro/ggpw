@@ -1,15 +1,29 @@
 'use client';
 
 import Link from 'next/link';
-import { usePathname } from 'next/navigation';
-import { LayoutDashboard, Users, Settings, ChevronLeft, ChevronRight, ShieldAlert, Calendar, Coins } from 'lucide-react';
+import { usePathname, useRouter } from 'next/navigation';
+import { Users, Settings, ChevronLeft, ChevronRight, ShieldAlert, Calendar, Coins, LogOut } from 'lucide-react';
 import clsx from 'clsx';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useSettings } from '@/store/settings';
 import SettingsDialog from './SettingsDialog';
+import { supabase } from '@/lib/supabase';
 
 const menuItems = [
-  { name: 'Dashboard', href: '/', icon: LayoutDashboard },
+  { 
+    name: 'Eventos', 
+    href: '/events', 
+    icon: Calendar,
+    subItems: [
+      { name: 'Total Geral', href: '/events/total' },
+      { name: 'Artes Marciais', href: '/events/martial-arts' },
+      { name: 'Feras Sombrias', href: '/events/dark-beasts' },
+      { name: 'Tigres Celestiais', href: '/events/celestial-tigers' },
+      { name: 'World Boss', href: '/events/world-boss' },
+      { name: 'GVG', href: '/events/gvg' },
+      { name: 'TW', href: '/events/tw' },
+    ]
+  },
   { name: 'Players', href: '/players', icon: Users },
   { 
     name: 'Guerra', 
@@ -19,21 +33,6 @@ const menuItems = [
       { name: 'Confirmados', href: '/war/confirmed' },
       { name: 'Formação', href: '/war/formation' },
       { name: 'Estratégia', href: '/war/strategy' },
-    ]
-  },
-  { 
-    name: 'Eventos', 
-    href: '/events', 
-    icon: Calendar,
-    subItems: [
-      { name: 'Dashboard', href: '/events/dashboard' },
-      { name: 'Total Geral', href: '/events/total' },
-      { name: 'Artes Marciais', href: '/events/martial-arts' },
-      { name: 'Feras Sombrias', href: '/events/dark-beasts' },
-      { name: 'Tigres Celestiais', href: '/events/celestial-tigers' },
-      { name: 'World Boss', href: '/events/world-boss' },
-      { name: 'GVG', href: '/events/gvg' },
-      { name: 'TW', href: '/events/tw' },
     ]
   },
   {
@@ -50,10 +49,38 @@ const menuItems = [
 
 export default function Sidebar() {
   const pathname = usePathname();
+  const router = useRouter();
   const [isCollapsed, setIsCollapsed] = useState(false);
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const [openMenus, setOpenMenus] = useState<string[]>([]);
+  const [isAuthenticated, setIsAuthenticated] = useState(false);
   const { clanName } = useSettings();
+
+  useEffect(() => {
+    const checkAuth = async () => {
+      const { data: { session } } = await supabase.auth.getSession();
+      setIsAuthenticated(!!session);
+    };
+    
+    checkAuth();
+
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+      setIsAuthenticated(!!session);
+    });
+
+    return () => subscription.unsubscribe();
+  }, []);
+
+  const handleLogout = async () => {
+    try {
+      await supabase.auth.signOut();
+      router.push('/');
+    } catch (error) {
+      console.error('Error logging out:', error);
+    }
+  };
+
+  if (!isAuthenticated) return null;
 
   const toggleSubmenu = (menuName: string) => {
     setOpenMenus(prev => 
@@ -153,6 +180,15 @@ export default function Sidebar() {
               <Settings className={clsx('flex-shrink-0 w-6 h-6', isCollapsed ? '' : 'mr-3')} />
               {!isCollapsed && <span>Settings</span>}
             </button>
+
+            <button
+              onClick={handleLogout}
+              className="flex items-center w-full px-4 py-2 mt-2 text-sm font-medium text-red-400 rounded-md hover:text-red-300 hover:bg-gray-800"
+            >
+              <LogOut className={clsx('flex-shrink-0 w-6 h-6', isCollapsed ? '' : 'mr-3')} />
+              {!isCollapsed && <span>Sair</span>}
+            </button>
+
             {!isCollapsed && <div className="text-xs text-gray-500 mt-1">Guild Manager</div>}
           </div>
         </div>
