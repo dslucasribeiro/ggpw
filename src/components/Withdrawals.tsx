@@ -1,0 +1,282 @@
+'use client';
+
+import { useState, useEffect } from 'react';
+import { supabase } from '@/lib/supabase';
+
+interface Player {
+  id: number;
+  nick: string;
+}
+
+interface ClanItem {
+  id: number;
+  item_name: string;
+}
+
+interface WithdrawalItem {
+  player_id: number;
+  player_nick: string;
+  perola4: number;
+  perola5: number;
+  perola6: number;
+  perola7: number;
+  intrepida: number;
+  pedra_magica: number;
+  pedra_afiada: number;
+  pedra_amarela: number;
+  pedra_vermelha: number;
+  arma_7_sabios: number;
+}
+
+interface ItemMap {
+  [key: string]: number;
+}
+
+export default function Withdrawals() {
+  const [items, setItems] = useState<WithdrawalItem[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [editingCell, setEditingCell] = useState<{playerId: number, column: string} | null>(null);
+
+  useEffect(() => {
+    loadData();
+  }, []);
+
+  const getColumnName = (itemName: string): string | null => {
+    const nameMap: { [key: string]: string } = {
+      'Pérola 4': 'perola4',
+      'Pérola 5': 'perola5',
+      'Pérola 6': 'perola6',
+      'Pérola 7': 'perola7',
+      'Intrépida': 'intrepida',
+      'Pedra Mágica nv7': 'pedra_magica',
+      'Pedra Afiada nv7': 'pedra_afiada',
+      'Pedra Amarela nv7': 'pedra_amarela',
+      'Pedra Vermelha nv7': 'pedra_vermelha'
+    };
+    return nameMap[itemName] || null;
+  };
+
+  const getItemName = (columnName: string): string => {
+    const nameMap: { [key: string]: string } = {
+      'perola4': 'Pérola 4',
+      'perola5': 'Pérola 5',
+      'perola6': 'Pérola 6',
+      'perola7': 'Pérola 7',
+      'intrepida': 'Intrépida',
+      'pedra_magica': 'Pedra Mágica nv7',
+      'pedra_afiada': 'Pedra Afiada nv7',
+      'pedra_amarela': 'Pedra Amarela nv7',
+      'pedra_vermelha': 'Pedra Vermelha nv7'
+    };
+    return nameMap[columnName] || columnName;
+  };
+
+  const loadData = async () => {
+    try {
+      setLoading(true);
+
+      // Carregar jogadores
+      const { data: playersData, error: playersError } = await supabase
+        .from('players')
+        .select('id, nick')
+        .order('nick');
+
+      if (playersError) throw playersError;
+
+      // Carregar todas as retiradas
+      const { data: withdrawalsData, error: withdrawalsError } = await supabase
+        .from('withdrawals')
+        .select(`
+          player_id,
+          quantity,
+          clan_items (
+            id,
+            item_name
+          )
+        `);
+
+      if (withdrawalsError) throw withdrawalsError;
+
+      // Processar os dados
+      const processedItems = playersData.map((player: Player) => {
+        const playerWithdrawals = withdrawalsData?.filter(
+          (w: any) => w.player_id === player.id
+        ) || [];
+
+        const withdrawalValues = playerWithdrawals.reduce((acc: any, curr: any) => {
+          const columnName = getColumnName(curr.clan_items?.item_name);
+          if (columnName) {
+            acc[columnName] = curr.quantity;
+          }
+          return acc;
+        }, {});
+
+        return {
+          player_id: player.id,
+          player_nick: player.nick,
+          perola4: withdrawalValues.perola4 || 0,
+          perola5: withdrawalValues.perola5 || 0,
+          perola6: withdrawalValues.perola6 || 0,
+          perola7: withdrawalValues.perola7 || 0,
+          intrepida: withdrawalValues.intrepida || 0,
+          pedra_magica: withdrawalValues.pedra_magica || 0,
+          pedra_afiada: withdrawalValues.pedra_afiada || 0,
+          pedra_amarela: withdrawalValues.pedra_amarela || 0,
+          pedra_vermelha: withdrawalValues.pedra_vermelha || 0,
+          arma_7_sabios: 0
+        };
+      });
+
+      setItems(processedItems);
+    } catch (error) {
+      console.error('Error loading data:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleCellClick = (playerId: number, column: string) => {
+    setEditingCell({ playerId, column });
+  };
+
+  const handleCellBlur = async (playerId: number, column: string, value: string) => {
+    const quantity = parseInt(value) || 0;
+    
+    try {
+      // Para a coluna Arma 7 Sábios, apenas atualizar o estado local
+      if (column === 'arma_7_sabios') {
+        setItems(items.map(item => 
+          item.player_id === playerId 
+            ? { ...item, [column]: quantity }
+            : item
+        ));
+        setEditingCell(null);
+        return;
+      }
+
+      // Para outros itens, atualizar no banco
+      const itemName = getItemName(column);
+      const item = await supabase
+        .from('clan_items')
+        .select('id')
+        .eq('item_name', itemName)
+        .single();
+      
+      if (!item.data?.id) {
+        console.error('Item ID not found for:', itemName);
+        return;
+      }
+      
+      const itemId = item.data.id;
+      
+      // Primeiro, tente atualizar se já existe
+      const { data: existingData, error: selectError } = await supabase
+        .from('withdrawals')
+        .select('id')
+        .eq('player_id', playerId)
+        .eq('item_id', itemId)
+        .single();
+
+      if (selectError && selectError.code !== 'PGRST116') {
+        throw selectError;
+      }
+
+      if (existingData?.id) {
+        // Atualizar registro existente
+        const { error: updateError } = await supabase
+          .from('withdrawals')
+          .update({ quantity })
+          .eq('id', existingData.id);
+
+        if (updateError) throw updateError;
+      } else {
+        // Criar novo registro
+        const { error: insertError } = await supabase
+          .from('withdrawals')
+          .insert({
+            player_id: playerId,
+            item_id: itemId,
+            quantity: quantity
+          });
+
+        if (insertError) throw insertError;
+      }
+
+      // Atualizar estado local
+      setItems(items.map(item => 
+        item.player_id === playerId 
+          ? { ...item, [column]: quantity }
+          : item
+      ));
+    } catch (error) {
+      console.error('Error updating withdrawal:', error);
+    }
+
+    setEditingCell(null);
+  };
+
+  if (loading) {
+    return <div className="text-white text-sm">Carregando...</div>;
+  }
+
+  const columns = [
+    { key: 'perola4', label: 'Pérola 4' },
+    { key: 'perola5', label: 'Pérola 5' },
+    { key: 'perola6', label: 'Pérola 6' },
+    { key: 'perola7', label: 'Pérola 7' },
+    { key: 'intrepida', label: 'Intrépida' },
+    { key: 'pedra_magica', label: 'Pedra Mágica nv7' },
+    { key: 'pedra_afiada', label: 'Pedra Afiada nv7' },
+    { key: 'pedra_amarela', label: 'Pedra Amarela nv7' },
+    { key: 'pedra_vermelha', label: 'Pedra Vermelha nv7' },
+    { key: 'arma_7_sabios', label: 'Arma 7 Sábios' }
+  ];
+
+  return (
+    <div className="bg-[#0B1120] text-white p-6">
+      <h1 className="text-xl font-semibold mb-6 px-3">Retiradas</h1>
+      <div className="overflow-x-auto">
+        <table className="w-full text-sm">
+          <thead>
+            <tr className="text-left bg-[#1E293B]">
+              <th className="py-2 px-3">PLAYERS</th>
+              {columns.map(col => (
+                <th key={col.key} className="py-2 px-3 text-center">{col.label}</th>
+              ))}
+            </tr>
+          </thead>
+          <tbody>
+            {items.map((item) => (
+              <tr 
+                key={item.player_id} 
+                className="border-t border-[#1E293B] hover:bg-[#1E293B] transition-colors"
+              >
+                <td className="py-2 px-3">{item.player_nick}</td>
+                {columns.map(col => (
+                  <td 
+                    key={col.key} 
+                    className="py-2 px-3 cursor-pointer text-center"
+                    onClick={() => handleCellClick(item.player_id, col.key)}
+                  >
+                    {editingCell?.playerId === item.player_id && editingCell?.column === col.key ? (
+                      <input
+                        type="number"
+                        defaultValue={item[col.key as keyof WithdrawalItem] as number}
+                        className="w-14 px-1 py-0.5 bg-[#2D3B4E] border border-[#1E293B] rounded text-white text-sm text-center"
+                        onBlur={(e) => handleCellBlur(item.player_id, col.key, e.target.value)}
+                        autoFocus
+                        min="0"
+                      />
+                    ) : (
+                      item[col.key as keyof WithdrawalItem] || 0
+                    )}
+                  </td>
+                ))}
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  );
+}

@@ -15,7 +15,6 @@ interface Player {
 export default function TotalTable() {
   const [players, setPlayers] = useState<Player[]>([]);
   const [loading, setLoading] = useState(true);
-  const [editingCell, setEditingCell] = useState<{ player: string; value: string } | null>(null);
 
   useEffect(() => {
     loadData();
@@ -39,19 +38,56 @@ export default function TotalTable() {
 
       if (eventsError) throw eventsError;
 
+      // Carregar itens do clã e suas pontuações
+      const { data: clanItems, error: clanItemsError } = await supabase
+        .from('clan_items')
+        .select('id, item_name, score');
+
+      if (clanItemsError) throw clanItemsError;
+
+      // Carregar todas as retiradas
+      const { data: withdrawalsData, error: withdrawalsError } = await supabase
+        .from('withdrawals')
+        .select(`
+          player_id,
+          quantity,
+          item_id
+        `);
+
+      if (withdrawalsError) throw withdrawalsError;
+
       // Processar os dados
-      const processedPlayers = playersData.map(player => {
+      const processedPlayers = await Promise.all(playersData.map(async player => {
+        // Calcular pontos dos eventos
         const playerEvents = eventsData.filter(event => event.player_name === player.nick);
         const pontosAcumulados = playerEvents.reduce((total, event) => total + (event.points || 0), 0);
+        
+        // Calcular pontos das retiradas
+        const { data: playerData } = await supabase
+          .from('players')
+          .select('id')
+          .eq('nick', player.nick)
+          .single();
+        
+        const playerId = playerData?.id;
+        const playerWithdrawals = withdrawalsData.filter(w => w.player_id === playerId);
+        
+        const totalRetiradas = playerWithdrawals.reduce((total, withdrawal) => {
+          const item = clanItems.find(item => item.id === withdrawal.item_id);
+          if (item?.score) {
+            return total + (withdrawal.quantity * item.score);
+          }
+          return total;
+        }, 0);
         
         return {
           nick: player.nick,
           classe: player.classe || '',
-          retiradas: 0, // Valor inicial, será editável manualmente
+          retiradas: totalRetiradas,
           pontos_acumulados: pontosAcumulados,
-          pontos_restantes: pontosAcumulados // Será atualizado quando as retiradas forem editadas
+          pontos_restantes: pontosAcumulados - totalRetiradas
         };
-      });
+      }));
 
       setPlayers(processedPlayers);
     } catch (error) {
@@ -73,96 +109,44 @@ export default function TotalTable() {
     return colors[classe] || 'bg-gray-600';
   };
 
-  const handleRetiradaClick = (player: string, currentValue: number) => {
-    setEditingCell({ player, value: currentValue.toString() });
-  };
-
-  const handleRetiradaChange = (value: string) => {
-    if (editingCell) {
-      setEditingCell({ ...editingCell, value });
-    }
-  };
-
-  const handleRetiradaBlur = () => {
-    if (editingCell) {
-      const retirada = parseInt(editingCell.value) || 0;
-      setPlayers(players.map(player => {
-        if (player.nick === editingCell.player) {
-          return {
-            ...player,
-            retiradas: retirada,
-            pontos_restantes: player.pontos_acumulados - retirada
-          };
-        }
-        return player;
-      }));
-      setEditingCell(null);
-    }
-  };
-
-  const handleKeyDown = (e: React.KeyboardEvent) => {
-    if (e.key === 'Enter') {
-      handleRetiradaBlur();
-    }
-  };
-
-  if (loading) {
-    return <div className="text-white">Carregando...</div>;
-  }
-
   return (
     <div className="bg-[#0B1120] rounded-lg overflow-hidden">
       <div className="p-4">
         <h2 className="text-xl font-semibold text-white mb-6">Total Geral</h2>
         <div className="overflow-x-auto">
-          <table className="w-full text-sm text-left text-gray-300">
-            <thead className="text-xs uppercase bg-gray-800">
-              <tr>
-                <th className="px-4 py-2">Player</th>
-                <th className="px-4 py-2">Classe</th>
-                <th className="px-4 py-2">Pontos Restantes</th>
-                <th className="px-4 py-2">Pontos Acumulados</th>
-                <th className="px-4 py-2">Retiradas</th>
-              </tr>
-            </thead>
-            <tbody>
-              {players.map(player => (
-                <tr key={player.nick} className="border-b border-gray-800">
-                  <td className="px-4 py-2">{player.nick}</td>
-                  <td className="px-4 py-2">
-                    <span className={clsx(
-                      'px-2 py-1 rounded text-white text-xs',
-                      getClasseColor(player.classe)
-                    )}>
-                      {player.classe}
-                    </span>
-                  </td>
-                  <td className="px-4 py-2">{player.pontos_restantes}</td>
-                  <td className="px-4 py-2">{player.pontos_acumulados}</td>
-                  <td className="px-4 py-2">
-                    {editingCell?.player === player.nick ? (
-                      <input
-                        type="number"
-                        value={editingCell.value}
-                        onChange={(e) => handleRetiradaChange(e.target.value)}
-                        onBlur={handleRetiradaBlur}
-                        onKeyDown={handleKeyDown}
-                        className="w-20 bg-gray-800 text-white border border-gray-700 rounded px-2 py-1"
-                        autoFocus
-                      />
-                    ) : (
-                      <button
-                        onClick={() => handleRetiradaClick(player.nick, player.retiradas)}
-                        className="w-full text-left px-2 py-1 rounded hover:bg-gray-800"
-                      >
-                        {player.retiradas}
-                      </button>
-                    )}
-                  </td>
+          {loading ? (
+            <div className="text-white">Carregando...</div>
+          ) : (
+            <table className="w-full text-sm text-left text-gray-300">
+              <thead className="text-xs uppercase bg-gray-800">
+                <tr>
+                  <th className="px-4 py-2">Player</th>
+                  <th className="px-4 py-2">Classe</th>
+                  <th className="px-4 py-2">Pontos Restantes</th>
+                  <th className="px-4 py-2">Pontos Acumulados</th>
+                  <th className="px-4 py-2">Retiradas</th>
                 </tr>
-              ))}
-            </tbody>
-          </table>
+              </thead>
+              <tbody>
+                {players.map(player => (
+                  <tr key={player.nick} className="border-b border-gray-800">
+                    <td className="px-4 py-2">{player.nick}</td>
+                    <td className="px-4 py-2">
+                      <span className={clsx(
+                        'px-2 py-1 rounded text-white text-xs',
+                        getClasseColor(player.classe)
+                      )}>
+                        {player.classe}
+                      </span>
+                    </td>
+                    <td className="px-4 py-2">{player.pontos_restantes}</td>
+                    <td className="px-4 py-2">{player.pontos_acumulados}</td>
+                    <td className="px-4 py-2">{player.retiradas}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          )}
         </div>
       </div>
     </div>

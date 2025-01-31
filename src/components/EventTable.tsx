@@ -17,6 +17,7 @@ interface EventEntry {
   player_name: string;
   event_date: string;
   points: number;
+  event_type_id: number;
 }
 
 export default function EventTable({ eventTypeId, eventWeight, title }: EventTableProps) {
@@ -90,24 +91,66 @@ export default function EventTable({ eventTypeId, eventWeight, title }: EventTab
     setShowDateInput(true);
   };
 
-  const handleDateSubmit = () => {
+  const handleDateSubmit = async () => {
     try {
       // Converte a data do formato DD/MM/YYYY para YYYY-MM-DD
       const [day, month, year] = newDate.split('/');
       const formattedDate = `${year}-${month.padStart(2, '0')}-${day.padStart(2, '0')}`;
 
       if (!dates.includes(formattedDate)) {
+        // Adicionar uma entrada vazia para cada jogador nesta data
+        const promises = players.map(player => 
+          supabase
+            .from('event_entries')
+            .insert({
+              event_type_id: eventTypeId,
+              player_name: player,
+              event_date: formattedDate,
+              points: 0
+            })
+        );
+
+        await Promise.all(promises);
+
+        // Recarregar todas as entradas
+        const { data, error } = await supabase
+          .from('event_entries')
+          .select('*')
+          .eq('event_type_id', eventTypeId);
+
+        if (error) throw error;
+
+        setEntries(data);
         setDates([...dates, formattedDate].sort());
       }
+
       setShowDateInput(false);
       setNewDate('');
     } catch (error) {
-      console.error('Data inválida');
+      console.error('Error submitting date:', error);
     }
   };
 
-  const removeDate = (dateToRemove: string) => {
-    setDates(dates.filter(date => date !== dateToRemove));
+  const removeDate = async (dateToRemove: string) => {
+    try {
+      // Primeiro, deletar todas as entradas com essa data
+      const { error: deleteError } = await supabase
+        .from('event_entries')
+        .delete()
+        .eq('event_type_id', eventTypeId)
+        .eq('event_date', dateToRemove);
+
+      if (deleteError) {
+        console.error('Error deleting entries:', deleteError);
+        return;
+      }
+
+      // Atualizar estado local
+      setDates(dates.filter(date => date !== dateToRemove));
+      setEntries(entries.filter(entry => entry.event_date !== dateToRemove));
+    } catch (error) {
+      console.error('Error removing date:', error);
+    }
   };
 
   const getPlayerTotal = (playerName: string) => {
@@ -125,49 +168,55 @@ export default function EventTable({ eventTypeId, eventWeight, title }: EventTab
   };
 
   const handlePointsChange = async (player: string, date: string, points: number) => {
-    const existingEntry = entries.find(e => 
-      e.player_name === player && 
-      e.event_date === date
-    );
+    try {
+      const existingEntry = entries.find(e => 
+        e.player_name === player && 
+        e.event_date === date &&
+        e.event_type_id === eventTypeId
+      );
 
-    if (existingEntry) {
-      const { error } = await supabase
-        .from('event_entries')
-        .update({ points })
-        .eq('id', existingEntry.id);
+      if (existingEntry) {
+        const { error } = await supabase
+          .from('event_entries')
+          .update({ points })
+          .eq('id', existingEntry.id)
+          .eq('event_type_id', eventTypeId);
 
-      if (error) {
-        console.error('Error updating points:', error);
-        return;
+        if (error) throw error;
+      } else {
+        const { error } = await supabase
+          .from('event_entries')
+          .insert({
+            event_type_id: eventTypeId,
+            player_name: player,
+            event_date: date,
+            points
+          });
+
+        if (error) throw error;
       }
-    } else {
-      const { error } = await supabase
-        .from('event_entries')
-        .insert({
-          event_type_id: eventTypeId,
-          player_name: player,
-          event_date: date,
-          points
-        });
 
-      if (error) {
-        console.error('Error inserting points:', error);
-        return;
-      }
+      // Atualizar estado local imediatamente
+      setEntries(prevEntries => {
+        if (existingEntry) {
+          return prevEntries.map(e => 
+            e.id === existingEntry.id 
+              ? { ...e, points }
+              : e
+          );
+        } else {
+          return [...prevEntries, {
+            id: Date.now().toString(), // ID temporário
+            event_type_id: eventTypeId,
+            player_name: player,
+            event_date: date,
+            points
+          }];
+        }
+      });
+    } catch (error) {
+      console.error('Error updating points:', error);
     }
-
-    // Refresh entries
-    const { data, error } = await supabase
-      .from('event_entries')
-      .select('*')
-      .eq('event_type_id', eventTypeId);
-
-    if (error) {
-      console.error('Error reloading entries:', error);
-      return;
-    }
-
-    setEntries(data);
   };
 
   const handleCellClick = (player: string, date: string) => {
