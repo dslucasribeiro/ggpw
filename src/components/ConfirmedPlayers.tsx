@@ -63,7 +63,7 @@ export default function ConfirmedPlayers({ twId, twDate }: ConfirmedPlayersProps
         }
 
         // Formatar players confirmados
-        const confirmedPlayersData = confirmed.map((cp: any) => ({
+        const confirmedPlayersData = confirmed.map((cp: { player_id: string, confirmed_at: string, players: Player }) => ({
           ...cp.players,
           confirmed_at: cp.confirmed_at,
         }));

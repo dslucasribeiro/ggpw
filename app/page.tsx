@@ -25,8 +25,9 @@ export default function LoginPage() {
 
       if (error) throw error;
       router.push('/players');
-    } catch (error: any) {
-      setError(error.message || 'Erro ao fazer login');
+    } catch (error: unknown) {
+      console.error('Error:', error);
+      setError('Erro ao fazer login');
     } finally {
       setLoading(false);
     }

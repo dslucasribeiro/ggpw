@@ -28,8 +28,27 @@ interface WithdrawalItem {
   arma_7_sabios: number;
 }
 
+interface Withdrawal {
+  player_id: number;
+  quantity: number;
+  item_id: number;
+}
+
 interface ItemMap {
   [key: string]: number;
+}
+
+interface WithdrawalValues {
+  perola4?: number;
+  perola5?: number;
+  perola6?: number;
+  perola7?: number;
+  intrepida?: number;
+  pedra_magica?: number;
+  pedra_afiada?: number;
+  pedra_amarela?: number;
+  pedra_vermelha?: number;
+  arma_7_sabios?: number;
 }
 
 export default function Withdrawals() {
@@ -41,19 +60,21 @@ export default function Withdrawals() {
     loadData();
   }, []);
 
-  const getColumnName = (itemName: string): string | null => {
-    const nameMap: { [key: string]: string } = {
-      'Pérola 4': 'perola4',
-      'Pérola 5': 'perola5',
-      'Pérola 6': 'perola6',
-      'Pérola 7': 'perola7',
-      'Intrépida': 'intrepida',
-      'Pedra Mágica nv7': 'pedra_magica',
-      'Pedra Afiada nv7': 'pedra_afiada',
-      'Pedra Amarela nv7': 'pedra_amarela',
-      'Pedra Vermelha nv7': 'pedra_vermelha'
+  const getColumnName = (itemId: string): keyof WithdrawalValues | null => {
+    const itemMap: { [key: string]: keyof WithdrawalValues } = {
+      '1': 'perola4',
+      '2': 'perola5',
+      '3': 'perola6',
+      '4': 'perola7',
+      '5': 'intrepida',
+      '6': 'pedra_magica',
+      '7': 'pedra_afiada',
+      '8': 'pedra_amarela',
+      '9': 'pedra_vermelha',
+      '10': 'arma_7_sabios'
     };
-    return nameMap[itemName] || null;
+    
+    return itemMap[itemId] || null;
   };
 
   const getItemName = (columnName: string): string => {
@@ -89,24 +110,19 @@ export default function Withdrawals() {
         .select(`
           player_id,
           quantity,
-          clan_items (
-            id,
-            item_name
-          )
+          item_id
         `);
 
       if (withdrawalsError) throw withdrawalsError;
 
       // Processar os dados
       const processedItems = playersData.map((player: Player) => {
-        const playerWithdrawals = withdrawalsData?.filter(
-          (w: any) => w.player_id === player.id
-        ) || [];
+        const playerWithdrawals = withdrawalsData.filter((w: Withdrawal) => w.player_id === player.id);
 
-        const withdrawalValues = playerWithdrawals.reduce((acc: any, curr: any) => {
-          const columnName = getColumnName(curr.clan_items?.item_name);
+        const withdrawalValues: WithdrawalValues = playerWithdrawals.reduce((acc: WithdrawalValues, curr: Withdrawal) => {
+          const columnName = getColumnName(curr.item_id.toString());
           if (columnName) {
-            acc[columnName] = curr.quantity;
+            acc[columnName] = (acc[columnName] || 0) + curr.quantity;
           }
           return acc;
         }, {});
@@ -123,7 +139,7 @@ export default function Withdrawals() {
           pedra_afiada: withdrawalValues.pedra_afiada || 0,
           pedra_amarela: withdrawalValues.pedra_amarela || 0,
           pedra_vermelha: withdrawalValues.pedra_vermelha || 0,
-          arma_7_sabios: 0
+          arma_7_sabios: withdrawalValues.arma_7_sabios || 0,
         };
       });
 
