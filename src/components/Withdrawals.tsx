@@ -37,6 +37,11 @@ interface WithdrawalValues {
   arma_7_sabios?: number;
 }
 
+interface Player {
+  id: number;
+  nick: string;
+}
+
 export default function Withdrawals() {
   const [items, setItems] = useState<WithdrawalItem[]>([]);
   const [loading, setLoading] = useState(true);
@@ -99,7 +104,7 @@ export default function Withdrawals() {
       if (withdrawalsError) throw withdrawalsError;
 
       // Processar os dados
-      const processedItems = playersData.map((player: any) => {
+      const processedItems = playersData.map((player: Player) => {
         const playerWithdrawals = withdrawalsData.filter((w: Withdrawal) => w.player_id === player.id);
 
         const withdrawalValues: WithdrawalValues = playerWithdrawals.reduce((acc: WithdrawalValues, curr: Withdrawal) => {

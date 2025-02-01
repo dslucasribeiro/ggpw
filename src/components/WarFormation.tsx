@@ -1,29 +1,8 @@
-'use client';
-
 import { useState, useEffect } from 'react';
+import { X, Settings, GripVertical } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
-import { Plus, X, ChevronDown, Settings, GripVertical, Download } from 'lucide-react';
-import * as Popover from '@radix-ui/react-popover';
-import * as Dialog from '@radix-ui/react-dialog';
 import clsx from 'clsx';
 import { useSettings } from '@/store/settings';
-import {
-  DndContext,
-  closestCenter,
-  KeyboardSensor,
-  PointerSensor,
-  useSensor,
-  useSensors,
-  DragEndEvent
-} from '@dnd-kit/core';
-import {
-  arrayMove,
-  SortableContext,
-  sortableKeyboardCoordinates,
-  useSortable,
-  verticalListSortingStrategy
-} from '@dnd-kit/sortable';
-import { CSS } from '@dnd-kit/utilities';
 import { format, parseISO } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 
@@ -159,54 +138,9 @@ function FormationTable({
                   {playerData ? (
                     <span className="text-white text-sm">{playerData.nick}</span>
                   ) : (
-                    <Popover.Root>
-                      <Popover.Trigger asChild>
-                        <button className="text-sm text-gray-400 hover:text-white">
-                          Adicionar player
-                        </button>
-                      </Popover.Trigger>
-                      <Popover.Portal>
-                        <Popover.Content 
-                          className="bg-[#0B1120] rounded-lg shadow-xl border border-gray-700 w-64 p-2 z-50"
-                          sideOffset={5}
-                        >
-                          <input
-                            type="text"
-                            placeholder="Buscar player..."
-                            value={searchTerm}
-                            onChange={(e) => setSearchTerm(e.target.value)}
-                            className="w-full px-2 py-1 bg-gray-800 border border-gray-700 rounded text-sm text-white placeholder-gray-500 mb-2"
-                          />
-                          <div className="max-h-48 overflow-y-auto">
-                            {confirmedPlayers
-                              .filter(p => 
-                                p.nick.toLowerCase().includes(searchTerm.toLowerCase()) &&
-                                !players.some(fp => fp.player_id === p.id)
-                              )
-                              .map(p => (
-                                <button
-                                  key={p.id}
-                                  onClick={() => {
-                                    onAddPlayer(title, index + 1, p.id);
-                                    setSearchTerm('');
-                                  }}
-                                  className={clsx(
-                                    "w-full text-left px-2 py-1 rounded text-sm mb-1 last:mb-0",
-                                    getBackgroundColor(p.classe),
-                                    "hover:bg-gray-700"
-                                  )}
-                                >
-                                  <div className="text-white">{p.nick}</div>
-                                  <div className={clsx("text-xs", getTextColor(p.classe))}>
-                                    {p.classe}
-                                  </div>
-                                </button>
-                              ))}
-                          </div>
-                          <Popover.Arrow className="fill-gray-700" />
-                        </Popover.Content>
-                      </Popover.Portal>
-                    </Popover.Root>
+                    <button className="text-sm text-gray-400 hover:text-white">
+                      Adicionar player
+                    </button>
                   )}
                 </td>
                 <td className={clsx(
@@ -266,32 +200,10 @@ function SortableTableItem({
   title: string;
   onRemove: (title: string) => void;
 }) {
-  const {
-    attributes,
-    listeners,
-    setNodeRef,
-    transform,
-    transition,
-    isDragging
-  } = useSortable({ id: title });
-
-  const style = {
-    transform: CSS.Transform.toString(transform),
-    transition,
-    opacity: isDragging ? 0.5 : 1,
-  };
-
   return (
-    <div 
-      ref={setNodeRef}
-      style={style}
-      className={clsx(
-        'flex items-center justify-between p-2 bg-gray-800 rounded mb-2',
-        isDragging && 'border-2 border-blue-500'
-      )}
-    >
+    <div className="flex items-center justify-between p-2 bg-gray-800 rounded mb-2">
       <div className="flex items-center gap-2">
-        <button {...attributes} {...listeners} className="cursor-grab hover:text-blue-400">
+        <button className="cursor-grab hover:text-blue-400">
           <GripVertical size={20} />
         </button>
         <span>{title}</span>
@@ -311,24 +223,6 @@ function ManageTablesDialog() {
   const [newTableName, setNewTableName] = useState('');
   const { tableNames, setTableNames } = useSettings();
   const { formationPlayers } = useSettings();
-
-  const sensors = useSensors(
-    useSensor(PointerSensor),
-    useSensor(KeyboardSensor, {
-      coordinateGetter: sortableKeyboardCoordinates,
-    })
-  );
-
-  const handleDragEnd = (event: DragEndEvent) => {
-    const { active, over } = event;
-    
-    if (over && active.id !== over.id) {
-      const oldIndex = tableNames.indexOf(active.id as string);
-      const newIndex = tableNames.indexOf(over.id as string);
-      
-      setTableNames(arrayMove(tableNames, oldIndex, newIndex));
-    }
-  };
 
   const handleAddTable = () => {
     if (!newTableName.trim()) {
@@ -356,20 +250,16 @@ function ManageTablesDialog() {
   };
 
   return (
-    <Dialog.Root open={isOpen} onOpenChange={setIsOpen}>
-      <Dialog.Trigger asChild>
-        <button className="flex items-center gap-2 text-gray-400 hover:text-white">
-          <Settings size={20} />
-          Gerenciar Tabelas
-        </button>
-      </Dialog.Trigger>
-      <Dialog.Portal>
-        <Dialog.Overlay className="fixed inset-0 bg-black/50" />
-        <Dialog.Content className="fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 bg-gray-900 p-6 rounded-lg shadow-xl w-[400px] max-h-[80vh] overflow-y-auto">
-          <Dialog.Title className="text-xl font-bold mb-4">
-            Gerenciar Tabelas
-          </Dialog.Title>
-
+    <div>
+      <button 
+        onClick={() => setIsOpen(true)}
+        className="flex items-center gap-2 text-gray-400 hover:text-white"
+      >
+        <Settings size={20} />
+        Gerenciar Tabelas
+      </button>
+      {isOpen && (
+        <div>
           <div className="flex gap-2 mb-4">
             <input
               type="text"
@@ -387,42 +277,17 @@ function ManageTablesDialog() {
           </div>
 
           <div className="space-y-2">
-            <DndContext
-              sensors={sensors}
-              collisionDetection={closestCenter}
-              onDragEnd={handleDragEnd}
-            >
-              <SortableContext
-                items={tableNames}
-                strategy={verticalListSortingStrategy}
-              >
-                {tableNames.map((name) => (
-                  <SortableTableItem 
-                    key={name} 
-                    title={name} 
-                    onRemove={handleRemoveTable}
-                  />
-                ))}
-              </SortableContext>
-            </DndContext>
+            {tableNames.map((name) => (
+              <SortableTableItem 
+                key={name} 
+                title={name} 
+                onRemove={handleRemoveTable}
+              />
+            ))}
           </div>
-
-          <Dialog.Close asChild>
-            <button className="absolute top-4 right-4 text-gray-400 hover:text-white">
-              <X size={20} />
-            </button>
-          </Dialog.Close>
-
-          <div className="mt-6 flex justify-end">
-            <Dialog.Close asChild>
-              <button className="bg-gray-800 hover:bg-gray-700 px-4 py-2 rounded">
-                Fechar
-              </button>
-            </Dialog.Close>
-          </div>
-        </Dialog.Content>
-      </Dialog.Portal>
-    </Dialog.Root>
+        </div>
+      )}
+    </div>
   );
 }
 
@@ -517,10 +382,7 @@ export default function WarFormation() {
         .select('*, player:players(*)')
         .eq('tw_id', twId);
 
-      if (error) {
-        console.error('Error fetching formation:', error);
-        return;
-      }
+      if (error) throw error;
 
       setFormationPlayers(formation as FormationPlayer[]);
     } catch (error) {

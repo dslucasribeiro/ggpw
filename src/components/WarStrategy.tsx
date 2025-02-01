@@ -1,5 +1,6 @@
-import React, { useRef, useEffect, useState, useCallback } from 'react';
-import { Trash2, Undo, Square, Circle, Pencil, Eraser, Sword, Shield, Users, Crosshair, Skull, Dumbbell } from 'lucide-react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
+import { Pencil, Eraser, Square, Circle, Undo, Trash2 } from 'lucide-react';
+import { strategyIcons } from '@/data/strategyIcons';
 
 interface Icon {
   type: string;
@@ -40,18 +41,8 @@ const WarStrategy = () => {
 
   const colors = ['#ff0000', '#00ff00', '#0000ff', '#ffff00', '#ff00ff', '#ffffff'];
 
-  const strategyIcons = [
-    { id: 'ct', label: 'CT', icon: Dumbbell, color: '#ff9800' },
-    { id: 'combo', label: 'Combo', icon: Sword, color: '#f44336' },
-    { id: 'apoio', label: 'Apoio', icon: Users, color: '#4caf50' },
-    { id: 'back_def', label: 'Back Def', icon: Shield, color: '#2196f3' },
-    { id: 'kill_ct', label: 'Kill CT', icon: Crosshair, color: '#9c27b0' },
-    { id: 'kill_ep', label: 'Kill EP', icon: Skull, color: '#607d8b' },
-  ];
-
   const renderIcons = useCallback((icons: Icon[] = placedIcons) => {
     if (!context || !canvasRef.current) return;
-
     icons.forEach(icon => {
       const iconConfig = strategyIcons.find(i => i.id === icon.type);
       if (iconConfig) {
@@ -76,7 +67,7 @@ const WarStrategy = () => {
         context.restore();
       }
     });
-  }, [context, placedIcons]);
+  }, [context, placedIcons, strategyIcons]);
 
   const saveToHistory = useCallback(() => {
     if (!context || !canvasRef.current) return;
@@ -198,13 +189,11 @@ const WarStrategy = () => {
   }, [context, drawHistory, renderIcons]);
 
   useEffect(() => {
-    if (!context || !canvasRef.current) return;
-    const lastState = drawHistory[historyIndex];
-    if (lastState) {
-      context.putImageData(lastState.imageData, 0, 0);
-      renderIcons(lastState.icons);
+    if (historyIndex >= 0 && drawHistory[historyIndex]) {
+      context?.putImageData(drawHistory[historyIndex].imageData, 0, 0);
+      renderIcons(drawHistory[historyIndex].icons);
     }
-  }, [placedIcons, drawHistory, historyIndex]);
+  }, [context, historyIndex, drawHistory, renderIcons]);
 
   const startDrawing = (e: React.MouseEvent<HTMLCanvasElement>) => {
     if (!context || !canvasRef.current || currentTool === 'icons') return;
