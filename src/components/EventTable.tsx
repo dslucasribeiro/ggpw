@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { format, parse } from 'date-fns';
+import { format } from 'date-fns';
 import { Plus, X } from 'lucide-react';
 import clsx from 'clsx';
 import { supabase } from '@/lib/supabase';

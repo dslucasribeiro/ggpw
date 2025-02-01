@@ -1,17 +1,7 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { supabase } from '@/lib/supabase';
-
-interface Player {
-  id: number;
-  nick: string;
-}
-
-interface ClanItem {
-  id: number;
-  item_name: string;
-}
 
 interface WithdrawalItem {
   player_id: number;
@@ -34,10 +24,6 @@ interface Withdrawal {
   item_id: number;
 }
 
-interface ItemMap {
-  [key: string]: number;
-}
-
 interface WithdrawalValues {
   perola4?: number;
   perola5?: number;
@@ -55,10 +41,6 @@ export default function Withdrawals() {
   const [items, setItems] = useState<WithdrawalItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [editingCell, setEditingCell] = useState<{playerId: number, column: string} | null>(null);
-
-  useEffect(() => {
-    loadData();
-  }, []);
 
   const getColumnName = (itemId: string): keyof WithdrawalValues | null => {
     const itemMap: { [key: string]: keyof WithdrawalValues } = {
@@ -87,12 +69,13 @@ export default function Withdrawals() {
       'pedra_magica': 'Pedra Mágica nv7',
       'pedra_afiada': 'Pedra Afiada nv7',
       'pedra_amarela': 'Pedra Amarela nv7',
-      'pedra_vermelha': 'Pedra Vermelha nv7'
+      'pedra_vermelha': 'Pedra Vermelha nv7',
+      'arma_7_sabios': 'Arma 7 Sábios'
     };
     return nameMap[columnName] || columnName;
   };
 
-  const loadData = async () => {
+  const loadData = useCallback(async () => {
     try {
       setLoading(true);
 
@@ -116,7 +99,7 @@ export default function Withdrawals() {
       if (withdrawalsError) throw withdrawalsError;
 
       // Processar os dados
-      const processedItems = playersData.map((player: Player) => {
+      const processedItems = playersData.map((player: any) => {
         const playerWithdrawals = withdrawalsData.filter((w: Withdrawal) => w.player_id === player.id);
 
         const withdrawalValues: WithdrawalValues = playerWithdrawals.reduce((acc: WithdrawalValues, curr: Withdrawal) => {
@@ -149,7 +132,11 @@ export default function Withdrawals() {
     } finally {
       setLoading(false);
     }
-  };
+  }, []);
+
+  useEffect(() => {
+    loadData();
+  }, [loadData]);
 
   const handleCellClick = (playerId: number, column: string) => {
     setEditingCell({ playerId, column });

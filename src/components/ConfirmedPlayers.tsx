@@ -5,7 +5,6 @@ import { supabase } from '@/lib/supabase';
 import { ChevronDown, ChevronUp, Plus, X } from 'lucide-react';
 import { format, parseISO } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
-import clsx from 'clsx';
 
 interface Player {
   id: number;
@@ -63,9 +62,8 @@ export default function ConfirmedPlayers({ twId, twDate }: ConfirmedPlayersProps
         }
 
         // Formatar players confirmados
-        const confirmedPlayersData = confirmed.map((cp: { player_id: string, confirmed_at: string, players: Player }) => ({
-          ...cp.players,
-          confirmed_at: cp.confirmed_at,
+        const confirmedPlayersData = confirmed.map((cp: { player_id: string, players: Player }) => ({
+          ...cp.players
         }));
 
         // Filtrar players disponíveis (não confirmados)

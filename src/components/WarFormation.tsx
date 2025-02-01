@@ -55,19 +55,6 @@ interface FormationTableProps {
   onUpdateTitle: (oldTitle: string, newTitle: string) => void;
 }
 
-const STATUS_OPTIONS = [
-  'OK',
-  'DESISTIU',
-  'FALTOU',
-  'ATRASO',
-  'SUNSHINE',
-  'BINLADEN',
-  'VODDISEIRA',
-  'SOLITUDE',
-  'VAX',
-  'MARTINS',
-];
-
 function FormationTable({ 
   title, 
   players, 

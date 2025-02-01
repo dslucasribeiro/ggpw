@@ -218,32 +218,6 @@ export default function Queue35k() {
     }
   };
 
-  const handleAddPlayer = async () => {
-    if (!newPlayerName.trim()) return;
-
-    try {
-      const nextOrder = queueItems.length + 1;
-      const { data: newItem, error } = await supabase
-        .from('queue_35k')
-        .insert([{
-          player_name: newPlayerName.trim(),
-          ordem: nextOrder
-        }])
-        .select()
-        .single();
-
-      if (error) throw error;
-
-      // Atualizar estado localmente
-      setQueueItems(prev => [...prev, newItem]);
-      setNewPlayerName('');
-      setAddingPlayer(false);
-    } catch (error) {
-      console.error('Error adding player:', error);
-      await loadData(); // Recarregar em caso de erro
-    }
-  };
-
   const handleRemoveDelivered = async (id: number) => {
     if (!confirm('Tem certeza que deseja remover este item dos entregues?')) return;
 
