@@ -8,19 +8,7 @@ interface Icon {
   y: number;
 }
 
-interface StrategyIcon {
-  id: string;
-  label: string;
-  icon: any;
-  color: string;
-}
-
 interface DrawState {
-  imageData: ImageData;
-  icons: Icon[];
-}
-
-interface HistoryState {
   imageData: ImageData;
   icons: Icon[];
 }
@@ -67,7 +55,7 @@ const WarStrategy = () => {
         context.restore();
       }
     });
-  }, [context, placedIcons, strategyIcons]);
+  }, [context, placedIcons]); // Removido strategyIcons das dependências
 
   const saveToHistory = useCallback(() => {
     if (!context || !canvasRef.current) return;
@@ -267,14 +255,6 @@ const WarStrategy = () => {
     if (currentTool === 'pencil' || currentTool === 'eraser') {
       saveToHistory();
     }
-  };
-
-  const handleUndo = () => {
-    undo();
-  };
-
-  const handleClear = () => {
-    clearCanvas();
   };
 
   return (

@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { supabase } from '@/lib/supabase';
 import { ChevronDown, ChevronUp, Plus, X } from 'lucide-react';
 import { format, parseISO } from 'date-fns';
@@ -14,75 +14,69 @@ interface Player {
   nivel: number;
 }
 
-interface ConfirmedPlayer extends Player {
-  confirmed_at: string;
-}
-
 interface ConfirmedPlayersProps {
   twId: number;
   twDate: string;
+  onUpdate: () => void;
 }
 
-export default function ConfirmedPlayers({ twId, twDate }: ConfirmedPlayersProps) {
+export default function ConfirmedPlayers({ twId, twDate, onUpdate }: ConfirmedPlayersProps) {
   const [isAddingPlayer, setIsAddingPlayer] = useState(false);
   const [availablePlayers, setAvailablePlayers] = useState<Player[]>([]);
-  const [confirmedPlayers, setConfirmedPlayers] = useState<ConfirmedPlayer[]>([]);
+  const [confirmedPlayers, setConfirmedPlayers] = useState<Player[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
   const [sortConfig, setSortConfig] = useState<{
-    key: keyof ConfirmedPlayer;
+    key: keyof Player;
     direction: 'asc' | 'desc';
   } | null>(null);
 
-  // Buscar players disponíveis e confirmados
-  useEffect(() => {
-    async function fetchData() {
-      setIsLoading(true);
-      try {
-        // Buscar todos os players
-        const { data: allPlayers, error: playersError } = await supabase
-          .from('players')
-          .select('*')
-          .order('nick');
+  const fetchConfirmedPlayers = useCallback(async () => {
+    setIsLoading(true);
+    try {
+      // Buscar todos os players
+      const { data: allPlayers, error: playersError } = await supabase
+        .from('players')
+        .select('*')
+        .order('nick');
 
-        if (playersError) {
-          console.error('Erro ao buscar players:', playersError);
-          throw playersError;
-        }
-
-        // Buscar players confirmados para esta TW
-        const { data: confirmed, error: confirmedError } = await supabase
-          .from('confirmed_players')
-          .select('*, players!confirmed_players_player_id_fkey(*)')
-          .eq('tw_id', twId);
-
-        if (confirmedError) {
-          console.error('Erro ao buscar confirmados:', confirmedError);
-          throw confirmedError;
-        }
-
-        // Formatar players confirmados
-        const confirmedPlayersData = confirmed.map((cp: { player_id: string, players: Player }) => ({
-          ...cp.players
-        }));
-
-        // Filtrar players disponíveis (não confirmados)
-        const confirmedIds = new Set(confirmedPlayersData.map((p: ConfirmedPlayer) => p.id));
-        const availablePlayersData = allPlayers.filter((p: Player) => !confirmedIds.has(p.id));
-
-        setAvailablePlayers(availablePlayersData);
-        setConfirmedPlayers(confirmedPlayersData);
-      } catch (error) {
-        console.error('Erro ao carregar players:', error);
-      } finally {
-        setIsLoading(false);
+      if (playersError) {
+        console.error('Erro ao buscar players:', playersError);
+        throw playersError;
       }
-    }
 
-    if (twId) {
-      fetchData();
+      // Buscar players confirmados para esta TW
+      const { data: confirmed, error: confirmedError } = await supabase
+        .from('confirmed_players')
+        .select('*, players!confirmed_players_player_id_fkey(*)')
+        .eq('tw_id', twId);
+
+      if (confirmedError) {
+        console.error('Erro ao buscar confirmados:', confirmedError);
+        throw confirmedError;
+      }
+
+      // Formatar players confirmados
+      const confirmedPlayersData = confirmed.map((cp: { player_id: string, players: Player }) => ({
+        ...cp.players
+      }));
+
+      // Filtrar players disponíveis (não confirmados)
+      const confirmedIds = new Set(confirmedPlayersData.map((p: Player) => p.id));
+      const availablePlayersData = allPlayers.filter((p: Player) => !confirmedIds.has(p.id));
+
+      setAvailablePlayers(availablePlayersData);
+      setConfirmedPlayers(confirmedPlayersData);
+    } catch (error) {
+      console.error('Erro ao carregar players:', error);
+    } finally {
+      setIsLoading(false);
     }
   }, [twId]);
+
+  useEffect(() => {
+    fetchConfirmedPlayers();
+  }, [fetchConfirmedPlayers]);
 
   // Confirmar player
   const handleConfirmPlayer = async (player: Player) => {
@@ -97,9 +91,10 @@ export default function ConfirmedPlayers({ twId, twDate }: ConfirmedPlayersProps
 
       if (error) throw error;
 
-      setConfirmedPlayers([...confirmedPlayers, { ...player, confirmed_at: new Date().toISOString() }]);
+      setConfirmedPlayers([...confirmedPlayers, player]);
       setAvailablePlayers(availablePlayers.filter(p => p.id !== player.id));
       setIsAddingPlayer(false);
+      onUpdate();
     } catch (error) {
       console.error('Erro ao confirmar player:', error);
     }
@@ -118,17 +113,17 @@ export default function ConfirmedPlayers({ twId, twDate }: ConfirmedPlayersProps
 
       const removedPlayer = confirmedPlayers.find(p => p.id === playerId);
       if (removedPlayer) {
-        const { confirmed_at, ...playerData } = removedPlayer;
-        setAvailablePlayers([...availablePlayers, playerData]);
+        setAvailablePlayers([...availablePlayers, removedPlayer]);
         setConfirmedPlayers(confirmedPlayers.filter(p => p.id !== playerId));
       }
+      onUpdate();
     } catch (error) {
       console.error('Erro ao remover confirmação:', error);
     }
   };
 
   // Ordenação
-  const handleSort = (key: keyof ConfirmedPlayer) => {
+  const handleSort = (key: keyof Player) => {
     let direction: 'asc' | 'desc' = 'asc';
     if (sortConfig && sortConfig.key === key && sortConfig.direction === 'asc') {
       direction = 'desc';

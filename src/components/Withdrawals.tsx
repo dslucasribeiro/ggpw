@@ -3,9 +3,18 @@
 import { useState, useEffect, useCallback } from 'react';
 import { supabase } from '@/lib/supabase';
 
+interface Player {
+  id: number;
+  nick: string;
+  classe: string;
+  nivel: number;
+}
+
 interface WithdrawalItem {
   player_id: number;
   player_nick: string;
+  classe: string;
+  nivel: number;
   perola4: number;
   perola5: number;
   perola6: number;
@@ -16,12 +25,6 @@ interface WithdrawalItem {
   pedra_amarela: number;
   pedra_vermelha: number;
   arma_7_sabios: number;
-}
-
-interface Withdrawal {
-  player_id: number;
-  quantity: number;
-  item_id: number;
 }
 
 interface WithdrawalValues {
@@ -37,9 +40,10 @@ interface WithdrawalValues {
   arma_7_sabios?: number;
 }
 
-interface Player {
-  id: number;
-  nick: string;
+interface Withdrawal {
+  player_id: number;
+  quantity: number;
+  item_id: number;
 }
 
 export default function Withdrawals() {
@@ -87,7 +91,7 @@ export default function Withdrawals() {
       // Carregar jogadores
       const { data: playersData, error: playersError } = await supabase
         .from('players')
-        .select('id, nick')
+        .select('id, nick, classe, nivel')
         .order('nick');
 
       if (playersError) throw playersError;
@@ -118,6 +122,8 @@ export default function Withdrawals() {
         return {
           player_id: player.id,
           player_nick: player.nick,
+          classe: player.classe,
+          nivel: player.nivel,
           perola4: withdrawalValues.perola4 || 0,
           perola5: withdrawalValues.perola5 || 0,
           perola6: withdrawalValues.perola6 || 0,

@@ -1,6 +1,13 @@
 import { Dumbbell, Sword, Users, Shield, Crosshair, Skull } from 'lucide-react';
 
-export const strategyIcons = [
+export interface StrategyIcon {
+  id: string;
+  label: string;
+  icon: any;
+  color: string;
+}
+
+export const strategyIcons: StrategyIcon[] = [
   { id: 'ct', label: 'CT', icon: Dumbbell, color: '#ff9800' },
   { id: 'combo', label: 'Combo', icon: Sword, color: '#f44336' },
   { id: 'apoio', label: 'Apoio', icon: Users, color: '#4caf50' },
