@@ -108,6 +108,38 @@ export default function TerritorialWar() {
     }
   };
 
+  const handleConfirmedPlayersUpdate = () => {
+    // Recarregar os dados da TW se necessário
+    async function loadTWs() {
+      setIsLoading(true);
+      try {
+        const { data, error } = await supabase
+          .from('territorial_wars')
+          .select('*')
+          .order('date', { ascending: true });
+
+        if (error) throw error;
+
+        // Converter as datas para o formato local
+        const formattedData = data?.map(tw => ({
+          ...tw,
+          date: tw.date.split('T')[0] // Remove a parte do tempo para evitar problemas de fuso horário
+        }));
+
+        setTerritorialWars(formattedData || []);
+        if (formattedData && formattedData.length > 0) {
+          setSelectedTW(formattedData[formattedData.length - 1]);
+        }
+      } catch (error) {
+        console.error('Erro ao carregar TWs:', error);
+      } finally {
+        setIsLoading(false);
+      }
+    }
+
+    loadTWs();
+  };
+
   return (
     <div className="p-6">
       <div className="flex justify-between items-center mb-6">
@@ -203,7 +235,13 @@ export default function TerritorialWar() {
       {/* Componentes baseados na rota */}
       {selectedTW && (
         <div className="w-full">
-          {pathname === '/war/confirmed' && <ConfirmedPlayers twId={selectedTW.id} twDate={selectedTW.date} />}
+          {pathname === '/war/confirmed' && (
+            <ConfirmedPlayers 
+              twId={selectedTW.id} 
+              twDate={selectedTW.date}
+              onUpdate={handleConfirmedPlayersUpdate}
+            />
+          )}
           {pathname === '/war/strategy' && <WarStrategy />}
         </div>
       )}

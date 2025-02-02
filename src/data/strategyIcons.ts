@@ -1,9 +1,9 @@
-import { Dumbbell, Sword, Users, Shield, Crosshair, Skull } from 'lucide-react';
+import { Dumbbell, Sword, Users, Shield, Crosshair, Skull, LucideIcon } from 'lucide-react';
 
 export interface StrategyIcon {
   id: string;
   label: string;
-  icon: any;
+  icon: LucideIcon;
   color: string;
 }
 
