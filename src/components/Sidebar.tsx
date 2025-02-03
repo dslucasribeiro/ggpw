@@ -1,13 +1,14 @@
 'use client';
 
 import Link from 'next/link';
-import { usePathname, useRouter } from 'next/navigation';
+import { usePathname } from 'next/navigation';
 import { Users, Settings, ChevronLeft, ChevronRight, ShieldAlert, Calendar, Coins, LogOut } from 'lucide-react';
 import clsx from 'clsx';
 import { useState, useEffect } from 'react';
 import { useSettings } from '@/store/settings';
 import SettingsDialog from './SettingsDialog';
 import { supabase } from '@/lib/supabase';
+import { useRouter } from 'next/navigation';
 
 const menuItems = [
   { name: 'Players', href: '/players', icon: Users },
@@ -17,7 +18,10 @@ const menuItems = [
     icon: ShieldAlert,
     subItems: [
       { name: 'Confirmados', href: '/war/confirmed' },
-      { name: 'Formação', href: '/war/formation' },
+      { 
+        name: 'Formação', 
+        href: '/war/formation/[tw_id]', 
+      },
       { name: 'Estratégia', href: '/war/strategy' },
     ]
   },
@@ -82,6 +86,11 @@ export default function Sidebar() {
 
   if (!isAuthenticated) return null;
 
+  const handleFormationClick = () => {
+    const twId = 1; // Example twId, replace with actual logic
+    router.push(`/war/formation/${twId}`);
+  };
+
   const toggleSubmenu = (menuName: string) => {
     setOpenMenus(prev => 
       prev.includes(menuName) 
@@ -140,16 +149,29 @@ export default function Sidebar() {
                     {!isCollapsed && openMenus.includes(item.name) && (
                       <div className="pl-11 pr-2 mt-2 space-y-1">
                         {item.subItems.map((subItem) => (
-                          <Link
-                            key={subItem.href}
-                            href={subItem.href}
-                            className={clsx(
-                              'block px-3 py-2 text-sm rounded-md',
-                              pathname === subItem.href ? 'text-white bg-gray-800' : 'text-gray-300 hover:text-white hover:bg-gray-800'
-                            )}
-                          >
-                            {subItem.name}
-                          </Link>
+                          subItem.name === 'Formação' ? (
+                            <button
+                              key={subItem.name}
+                              onClick={handleFormationClick}
+                              className={clsx(
+                                'block px-3 py-2 text-sm rounded-md',
+                                pathname === subItem.href ? 'text-white bg-gray-800' : 'text-gray-300 hover:text-white hover:bg-gray-800'
+                              )}
+                            >
+                              {subItem.name}
+                            </button>
+                          ) : (
+                            <Link
+                              key={subItem.href}
+                              href={subItem.href}
+                              className={clsx(
+                                'block px-3 py-2 text-sm rounded-md',
+                                pathname === subItem.href ? 'text-white bg-gray-800' : 'text-gray-300 hover:text-white hover:bg-gray-800'
+                              )}
+                            >
+                              {subItem.name}
+                            </Link>
+                          )
                         ))}
                       </div>
                     )}
