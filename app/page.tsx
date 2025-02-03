@@ -2,6 +2,7 @@
 
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
+import Image from 'next/image';
 import { supabase } from '@/lib/supabase';
 
 export default function LoginPage() {
@@ -35,10 +36,19 @@ export default function LoginPage() {
   return (
     <div className="min-h-screen flex items-center justify-center bg-[#0B1120]">
       <div className="max-w-md w-full space-y-8 p-8 bg-[#1A2333] rounded-xl shadow-2xl">
-        <div className="text-center">
-          <h1 className="text-3xl font-bold text-white mb-2">GGPW</h1>
+        <div className="flex flex-col items-center justify-center">
+          <div className="w-full flex justify-center">
+            <Image
+              src="/images/GGPW_logo_transparent.png"
+              alt="GGPW Logo"
+              width={300}
+              height={150}
+              className="mb-8"
+              priority
+            />
+          </div>
           <p className="text-gray-400 text-sm">Sistema de Gerenciamento de Guild - Perfect World</p>
-          <div className="h-px bg-gradient-to-r from-transparent via-red-500 to-transparent opacity-75 my-6"></div>
+          <div className="h-px bg-gradient-to-r from-transparent via-red-500 to-transparent opacity-75 my-6 w-full"></div>
         </div>
 
         <form onSubmit={handleLogin} className="space-y-6">

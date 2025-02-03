@@ -10,6 +10,17 @@ import SettingsDialog from './SettingsDialog';
 import { supabase } from '@/lib/supabase';
 
 const menuItems = [
+  { name: 'Players', href: '/players', icon: Users },
+  { 
+    name: 'Guerra', 
+    href: '/war', 
+    icon: ShieldAlert,
+    subItems: [
+      { name: 'Confirmados', href: '/war/confirmed' },
+      { name: 'Formação', href: '/war/formation' },
+      { name: 'Estratégia', href: '/war/strategy' },
+    ]
+  },
   { 
     name: 'Eventos', 
     href: '/events', 
@@ -22,17 +33,6 @@ const menuItems = [
       { name: 'World Boss', href: '/events/world-boss' },
       { name: 'GVG', href: '/events/gvg' },
       { name: 'TW', href: '/events/tw' },
-    ]
-  },
-  { name: 'Players', href: '/players', icon: Users },
-  { 
-    name: 'Guerra', 
-    href: '/war', 
-    icon: ShieldAlert,
-    subItems: [
-      { name: 'Confirmados', href: '/war/confirmed' },
-      { name: 'Formação', href: '/war/formation' },
-      { name: 'Estratégia', href: '/war/strategy' },
     ]
   },
   {
@@ -107,10 +107,10 @@ export default function Sidebar() {
           </button>
 
           {/* Clan Name */}
-          <div className="px-4 py-4">
+          <div className="px-4 py-4 flex justify-center">
             <h1 className={clsx(
               'font-semibold text-white truncate transition-all',
-              isCollapsed ? 'text-sm text-center' : 'text-xl'
+              isCollapsed ? 'text-sm' : 'text-xl'
             )}>
               {isCollapsed ? clanName?.slice(0, 3) : clanName}
             </h1>
