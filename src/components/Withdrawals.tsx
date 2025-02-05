@@ -2,6 +2,8 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import { supabase } from '@/lib/supabase';
+import { AlertCircle } from 'lucide-react';
+import clsx from 'clsx';
 
 interface Player {
   id: number;
@@ -46,10 +48,17 @@ interface Withdrawal {
   item_id: number;
 }
 
+interface PlayerPoints {
+  pontos_acumulados: number;
+  pontos_gastos: number;
+}
+
 export default function Withdrawals() {
   const [items, setItems] = useState<WithdrawalItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [editingCell, setEditingCell] = useState<{playerId: number, column: string} | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const [playerPoints, setPlayerPoints] = useState<{[key: number]: PlayerPoints}>({});
 
   const getColumnName = (itemId: string): keyof WithdrawalValues | null => {
     const itemMap: { [key: string]: keyof WithdrawalValues } = {
@@ -84,6 +93,51 @@ export default function Withdrawals() {
     return nameMap[columnName] || columnName;
   };
 
+  const calculatePlayerPoints = async (playerId: number) => {
+    try {
+      // Buscar o nick do player
+      const { data: playerData } = await supabase
+        .from('players')
+        .select('nick')
+        .eq('id', playerId)
+        .single();
+
+      if (!playerData) throw new Error('Player not found');
+
+      // Calcular pontos acumulados dos eventos
+      const { data: eventsData } = await supabase
+        .from('event_entries')
+        .select('points')
+        .eq('player_name', playerData.nick);
+
+      const pontos_acumulados = eventsData?.reduce((total, event) => total + (event.points || 0), 0) || 0;
+
+      // Calcular pontos gastos em retiradas
+      const { data: withdrawalsData } = await supabase
+        .from('withdrawals')
+        .select('item_id, quantity')
+        .eq('player_id', playerId);
+
+      // Buscar scores dos itens
+      const { data: clanItems } = await supabase
+        .from('clan_items')
+        .select('id, score');
+
+      const pontos_gastos = withdrawalsData?.reduce((total, withdrawal) => {
+        const item = clanItems?.find(item => item.id === withdrawal.item_id);
+        if (item?.score) {
+          return total + (withdrawal.quantity * item.score);
+        }
+        return total;
+      }, 0) || 0;
+
+      return { pontos_acumulados, pontos_gastos };
+    } catch (error) {
+      console.error('Error calculating points:', error);
+      return { pontos_acumulados: 0, pontos_gastos: 0 };
+    }
+  };
+
   const loadData = useCallback(async () => {
     try {
       setLoading(true);
@@ -106,6 +160,13 @@ export default function Withdrawals() {
         `);
 
       if (withdrawalsError) throw withdrawalsError;
+
+      // Carregar pontos de todos os players
+      const pointsData: {[key: number]: PlayerPoints} = {};
+      for (const player of playersData) {
+        pointsData[player.id] = await calculatePlayerPoints(player.id);
+      }
+      setPlayerPoints(pointsData);
 
       // Processar os dados
       const processedItems = playersData.map((player: Player) => {
@@ -140,6 +201,7 @@ export default function Withdrawals() {
       setItems(processedItems);
     } catch (error) {
       console.error('Error loading data:', error);
+      setError('Erro ao carregar dados');
     } finally {
       setLoading(false);
     }
@@ -151,44 +213,58 @@ export default function Withdrawals() {
 
   const handleCellClick = (playerId: number, column: string) => {
     setEditingCell({ playerId, column });
+    setError(null);
   };
 
   const handleCellBlur = async (playerId: number, column: string, value: string) => {
-    const quantity = parseInt(value) || 0;
+    const newQuantity = parseInt(value) || 0;
+    const currentItem = items.find(item => item.player_id === playerId);
+    const currentQuantity = currentItem ? currentItem[column as keyof WithdrawalItem] as number : 0;
     
     try {
       // Para a coluna Arma 7 Sábios, apenas atualizar o estado local
       if (column === 'arma_7_sabios') {
         setItems(items.map(item => 
           item.player_id === playerId 
-            ? { ...item, [column]: quantity }
+            ? { ...item, [column]: newQuantity }
             : item
         ));
         setEditingCell(null);
         return;
       }
 
-      // Para outros itens, atualizar no banco
+      // Buscar o score do item
       const itemName = getItemName(column);
-      const item = await supabase
+      const { data: itemData, error: itemError } = await supabase
         .from('clan_items')
-        .select('id')
+        .select('id, score')
         .eq('item_name', itemName)
         .single();
       
-      if (!item.data?.id) {
-        console.error('Item ID not found for:', itemName);
+      if (itemError || !itemData) {
+        throw new Error('Item não encontrado');
+      }
+
+      // Calcular custo da alteração
+      const quantityDiff = newQuantity - currentQuantity;
+      const pontosNecessarios = quantityDiff * (itemData.score || 0);
+
+      // Verificar se o player tem pontos suficientes
+      const playerPoint = playerPoints[playerId];
+      const pontosDisponiveis = playerPoint.pontos_acumulados - playerPoint.pontos_gastos;
+
+      if (pontosNecessarios > pontosDisponiveis) {
+        setError(`Pontos insuficientes. Necessários: ${pontosNecessarios}, Disponíveis: ${pontosDisponiveis}`);
+        setEditingCell(null);
         return;
       }
-      
-      const itemId = item.data.id;
-      
+
       // Primeiro, tente atualizar se já existe
       const { data: existingData, error: selectError } = await supabase
         .from('withdrawals')
         .select('id')
         .eq('player_id', playerId)
-        .eq('item_id', itemId)
+        .eq('item_id', itemData.id)
         .single();
 
       if (selectError && selectError.code !== 'PGRST116') {
@@ -199,7 +275,7 @@ export default function Withdrawals() {
         // Atualizar registro existente
         const { error: updateError } = await supabase
           .from('withdrawals')
-          .update({ quantity })
+          .update({ quantity: newQuantity })
           .eq('id', existingData.id);
 
         if (updateError) throw updateError;
@@ -209,8 +285,8 @@ export default function Withdrawals() {
           .from('withdrawals')
           .insert({
             player_id: playerId,
-            item_id: itemId,
-            quantity: quantity
+            item_id: itemData.id,
+            quantity: newQuantity
           });
 
         if (insertError) throw insertError;
@@ -219,11 +295,20 @@ export default function Withdrawals() {
       // Atualizar estado local
       setItems(items.map(item => 
         item.player_id === playerId 
-          ? { ...item, [column]: quantity }
+          ? { ...item, [column]: newQuantity }
           : item
       ));
+
+      // Atualizar pontos do player
+      const newPoints = await calculatePlayerPoints(playerId);
+      setPlayerPoints(prev => ({
+        ...prev,
+        [playerId]: newPoints
+      }));
+
     } catch (error) {
       console.error('Error updating withdrawal:', error);
+      setError('Erro ao atualizar retirada');
     }
 
     setEditingCell(null);
@@ -248,46 +333,67 @@ export default function Withdrawals() {
 
   return (
     <div className="bg-[#0B1120] text-white p-6">
-      <h1 className="text-xl font-semibold mb-6 px-3">Retiradas</h1>
+      <div className="flex justify-between items-center mb-6">
+        <h1 className="text-xl font-semibold px-3">Retiradas</h1>
+        {error && (
+          <div className="flex items-center gap-2 text-red-400 text-sm">
+            <AlertCircle className="w-4 h-4" />
+            {error}
+          </div>
+        )}
+      </div>
+
       <div className="overflow-x-auto">
         <table className="w-full text-sm">
           <thead>
             <tr className="text-left bg-[#1E293B]">
               <th className="py-2 px-3">PLAYERS</th>
+              <th className="py-2 px-3 text-center">Pontos Disponíveis</th>
               {columns.map(col => (
                 <th key={col.key} className="py-2 px-3 text-center">{col.label}</th>
               ))}
             </tr>
           </thead>
           <tbody>
-            {items.map((item) => (
-              <tr 
-                key={item.player_id} 
-                className="border-t border-[#1E293B] hover:bg-[#1E293B] transition-colors"
-              >
-                <td className="py-2 px-3">{item.player_nick}</td>
-                {columns.map(col => (
-                  <td 
-                    key={col.key} 
-                    className="py-2 px-3 cursor-pointer text-center"
-                    onClick={() => handleCellClick(item.player_id, col.key)}
-                  >
-                    {editingCell?.playerId === item.player_id && editingCell?.column === col.key ? (
-                      <input
-                        type="number"
-                        defaultValue={item[col.key as keyof WithdrawalItem] as number}
-                        className="w-14 px-1 py-0.5 bg-[#2D3B4E] border border-[#1E293B] rounded text-white text-sm text-center"
-                        onBlur={(e) => handleCellBlur(item.player_id, col.key, e.target.value)}
-                        autoFocus
-                        min="0"
-                      />
-                    ) : (
-                      item[col.key as keyof WithdrawalItem] || 0
-                    )}
+            {items.map((item) => {
+              const points = playerPoints[item.player_id];
+              const pontosDisponiveis = points ? points.pontos_acumulados - points.pontos_gastos : 0;
+
+              return (
+                <tr 
+                  key={item.player_id} 
+                  className="border-t border-[#1E293B] hover:bg-[#1E293B] transition-colors"
+                >
+                  <td className="py-2 px-3">{item.player_nick}</td>
+                  <td className={clsx(
+                    "py-2 px-3 text-center font-medium",
+                    pontosDisponiveis > 0 ? "text-green-400" : "text-red-400"
+                  )}>
+                    {pontosDisponiveis}
                   </td>
-                ))}
-              </tr>
-            ))}
+                  {columns.map(col => (
+                    <td 
+                      key={col.key} 
+                      className="py-2 px-3 cursor-pointer text-center"
+                      onClick={() => handleCellClick(item.player_id, col.key)}
+                    >
+                      {editingCell?.playerId === item.player_id && editingCell?.column === col.key ? (
+                        <input
+                          type="number"
+                          defaultValue={item[col.key as keyof WithdrawalItem] as number}
+                          className="w-14 px-1 py-0.5 bg-[#2D3B4E] border border-[#1E293B] rounded text-white text-sm text-center"
+                          onBlur={(e) => handleCellBlur(item.player_id, col.key, e.target.value)}
+                          autoFocus
+                          min="0"
+                        />
+                      ) : (
+                        item[col.key as keyof WithdrawalItem] || 0
+                      )}
+                    </td>
+                  ))}
+                </tr>
+              );
+            })}
           </tbody>
         </table>
       </div>
