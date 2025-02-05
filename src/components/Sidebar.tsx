@@ -30,6 +30,7 @@ const menuItems = [
     href: '/events', 
     icon: Calendar,
     subItems: [
+      { name: 'Lista de Eventos', href: '/events/list' },
       { name: 'Total Geral', href: '/events/total' },
       { name: 'Artes Marciais', href: '/events/martial-arts' },
       { name: 'Feras Sombrias', href: '/events/dark-beasts' },
@@ -52,7 +53,7 @@ const menuItems = [
 ];
 
 export default function Sidebar() {
-  const pathname = usePathname();
+  const pathname = usePathname() || '';
   const router = useRouter();
   const [isCollapsed, setIsCollapsed] = useState(false);
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
@@ -139,7 +140,7 @@ export default function Sidebar() {
                       onClick={() => toggleSubmenu(item.name)}
                       className={clsx(
                         'flex items-center w-full px-4 py-2 text-sm font-medium rounded-md',
-                        pathname.startsWith(item.href) ? 'text-white bg-gray-800' : 'text-gray-300 hover:text-white hover:bg-gray-800'
+                        pathname?.startsWith(item.href) ? 'text-white bg-gray-800' : 'text-gray-300 hover:text-white hover:bg-gray-800'
                       )}
                     >
                       <item.icon className={clsx('flex-shrink-0 w-6 h-6', isCollapsed ? '' : 'mr-3')} />
