@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
-import { Pencil, Eraser, Square, Circle, Undo, Trash2 } from 'lucide-react';
+import { Pencil, Square, Circle, Undo, Trash2, ArrowUp, Palette } from 'lucide-react';
 import { strategyIcons } from '@/data/strategyIcons';
 
 interface Icon {
@@ -17,17 +17,19 @@ const WarStrategy = () => {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const [isDrawing, setIsDrawing] = useState(false);
   const [context, setContext] = useState<CanvasRenderingContext2D | null>(null);
-  const [currentColor, setCurrentColor] = useState('#ff0000');
+  const [currentColor, setCurrentColor] = useState('#000000');
   const [brushSize, setBrushSize] = useState(2);
-  const [currentTool, setCurrentTool] = useState<'pencil' | 'eraser' | 'square' | 'circle' | 'icons'>('pencil');
+  const [currentTool, setCurrentTool] = useState<'pencil' | 'square' | 'circle' | 'arrow' | 'icons'>('pencil');
   const [drawHistory, setDrawHistory] = useState<DrawState[]>([]);
   const [placedIcons, setPlacedIcons] = useState<Icon[]>([]);
   const [draggedIcon, setDraggedIcon] = useState<string | null>(null);
   const [historyIndex, setHistoryIndex] = useState(0);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [startPoint, setStartPoint] = useState<{ x: number; y: number } | null>(null);
+  const [isColorPickerOpen, setIsColorPickerOpen] = useState(false);
 
-  const colors = ['#ff0000', '#00ff00', '#0000ff', '#ffff00', '#ff00ff', '#ffffff'];
+  const colors = ['#000000', '#ff0000', '#00ff00', '#0000ff', '#ffff00', '#ff00ff', '#ffffff'];
 
   const renderIcons = useCallback((icons: Icon[] = placedIcons) => {
     if (!context || !canvasRef.current) return;
@@ -81,12 +83,141 @@ const WarStrategy = () => {
 
   const clearCanvas = useCallback(() => {
     if (!context || !canvasRef.current) return;
-    
-    context.fillStyle = '#ffffff';
-    context.fillRect(0, 0, canvasRef.current.width, canvasRef.current.height);
+
+    // Limpa o estado dos ícones
     setPlacedIcons([]);
+
+    // Restaura o estado inicial do histórico
+    if (drawHistory.length > 0) {
+      const initialState = drawHistory[0];
+      context.putImageData(initialState.imageData, 0, 0);
+      setHistoryIndex(0);
+      setDrawHistory([initialState]);
+    }
+  }, [context, canvasRef, drawHistory]);
+
+  useEffect(() => {
+    renderIcons();
+  }, [placedIcons, renderIcons]);
+
+  useEffect(() => {
+    if (!context) return;
+    context.lineWidth = brushSize;
+    context.strokeStyle = currentColor;
+  }, [context, brushSize, currentColor]);
+
+  useEffect(() => {
+    if (!context || drawHistory.length === 0) return;
+    const lastItem = drawHistory[drawHistory.length - 1];
+    context.putImageData(lastItem.imageData, 0, 0);
+    renderIcons();
+  }, [context, drawHistory, renderIcons]);
+
+  useEffect(() => {
+    if (historyIndex >= 0 && drawHistory[historyIndex]) {
+      context?.putImageData(drawHistory[historyIndex].imageData, 0, 0);
+      renderIcons(drawHistory[historyIndex].icons);
+    }
+  }, [context, historyIndex, drawHistory, renderIcons]);
+
+  const startDrawing = (e: React.MouseEvent<HTMLCanvasElement>) => {
+    if (!context || !canvasRef.current || currentTool === 'icons') return;
+    setIsDrawing(true);
+    const rect = canvasRef.current.getBoundingClientRect();
+    const startX = e.clientX - rect.left;
+    const startY = e.clientY - rect.top;
+    
+    context.beginPath();
+    context.moveTo(startX, startY);
+    context.strokeStyle = currentColor;
+    context.lineWidth = brushSize;
+    
+    setStartPoint({ x: startX, y: startY });
+  };
+
+  const draw = useCallback((e: React.MouseEvent<HTMLCanvasElement>) => {
+    if (!isDrawing || !context || !startPoint || !canvasRef.current) return;
+
+    const currentPoint = {
+      x: e.clientX - canvasRef.current.getBoundingClientRect().left,
+      y: e.clientY - canvasRef.current.getBoundingClientRect().top
+    };
+
+    // Restaurar o último estado antes de desenhar
+    if (drawHistory.length > 0) {
+      const lastState = drawHistory[historyIndex];
+      context.putImageData(lastState.imageData, 0, 0);
+    }
+
+    context.strokeStyle = currentColor;
+    context.lineWidth = brushSize;
+
+    if (currentTool === 'pencil') {
+      context.lineTo(currentPoint.x, currentPoint.y);
+      context.stroke();
+    } else if (currentTool === 'square') {
+      const width = currentPoint.x - startPoint.x;
+      const height = currentPoint.y - startPoint.y;
+      context.strokeRect(startPoint.x, startPoint.y, width, height);
+    } else if (currentTool === 'circle') {
+      const radius = Math.sqrt(
+        Math.pow(currentPoint.x - startPoint.x, 2) + Math.pow(currentPoint.y - startPoint.y, 2)
+      );
+      context.beginPath();
+      context.arc(startPoint.x, startPoint.y, radius, 0, 2 * Math.PI);
+      context.stroke();
+    } else if (currentTool === 'arrow') {
+      // Desenhar a seta
+      const angle = Math.atan2(currentPoint.y - startPoint.y, currentPoint.x - startPoint.x);
+      const headLength = 20; // Tamanho da ponta da seta
+
+      // Linha principal da seta
+      context.beginPath();
+      context.moveTo(startPoint.x, startPoint.y);
+      context.lineTo(currentPoint.x, currentPoint.y);
+      context.stroke();
+
+      // Ponta da seta
+      context.beginPath();
+      context.moveTo(currentPoint.x, currentPoint.y);
+      context.lineTo(
+        currentPoint.x - headLength * Math.cos(angle - Math.PI / 6),
+        currentPoint.y - headLength * Math.sin(angle - Math.PI / 6)
+      );
+      context.moveTo(currentPoint.x, currentPoint.y);
+      context.lineTo(
+        currentPoint.x - headLength * Math.cos(angle + Math.PI / 6),
+        currentPoint.y - headLength * Math.sin(angle + Math.PI / 6)
+      );
+      context.stroke();
+    }
+  }, [isDrawing, context, startPoint, currentColor, brushSize, currentTool, drawHistory, historyIndex]);
+
+  const stopDrawing = () => {
+    if (!isDrawing || !context || !canvasRef.current) return;
+    setIsDrawing(false);
+    context.closePath();
     saveToHistory();
-  }, [context, canvasRef, saveToHistory]);
+    setStartPoint(null);
+  };
+
+  const handleDragStart = (iconType: string) => {
+    setDraggedIcon(iconType);
+  };
+
+  const handleDrop = (e: React.DragEvent<HTMLCanvasElement>) => {
+    if (!draggedIcon || !canvasRef.current || !context) return;
+    
+    const rect = canvasRef.current.getBoundingClientRect();
+    const x = e.clientX - rect.left;
+    const y = e.clientY - rect.top;
+
+    const newIcon = { type: draggedIcon, x, y };
+    setPlacedIcons(prev => [...prev, newIcon]);
+    renderIcons([...placedIcons, newIcon]); // Renderiza imediatamente
+    saveToHistory();
+    setDraggedIcon(null);
+  };
 
   useEffect(() => {
     const canvas = canvasRef.current;
@@ -163,100 +294,6 @@ const WarStrategy = () => {
     };
   }, []);
 
-  useEffect(() => {
-    if (!context) return;
-    context.lineWidth = brushSize;
-    context.strokeStyle = currentColor;
-  }, [context, brushSize, currentColor]);
-
-  useEffect(() => {
-    if (!context || drawHistory.length === 0) return;
-    const lastItem = drawHistory[drawHistory.length - 1];
-    context.putImageData(lastItem.imageData, 0, 0);
-    renderIcons();
-  }, [context, drawHistory, renderIcons]);
-
-  useEffect(() => {
-    if (historyIndex >= 0 && drawHistory[historyIndex]) {
-      context?.putImageData(drawHistory[historyIndex].imageData, 0, 0);
-      renderIcons(drawHistory[historyIndex].icons);
-    }
-  }, [context, historyIndex, drawHistory, renderIcons]);
-
-  const startDrawing = (e: React.MouseEvent<HTMLCanvasElement>) => {
-    if (!context || !canvasRef.current || currentTool === 'icons') return;
-    setIsDrawing(true);
-    const rect = canvasRef.current.getBoundingClientRect();
-    const x = e.clientX - rect.left;
-    const y = e.clientY - rect.top;
-    
-    if (currentTool === 'pencil' || currentTool === 'eraser') {
-      context.beginPath();
-      context.moveTo(x, y);
-    } else {
-      // Salvar o estado antes de começar a desenhar forma
-      saveToHistory();
-    }
-  };
-
-  const draw = (e: React.MouseEvent<HTMLCanvasElement>) => {
-    if (!isDrawing || !context || !canvasRef.current || currentTool === 'icons') return;
-    const rect = canvasRef.current.getBoundingClientRect();
-    const x = e.clientX - rect.left;
-    const y = e.clientY - rect.top;
-
-    if (currentTool === 'pencil' || currentTool === 'eraser') {
-      context.lineTo(x, y);
-      context.stroke();
-    } else {
-      const lastState = drawHistory[drawHistory.length - 1];
-      context.putImageData(lastState.imageData, 0, 0);
-      renderIcons(lastState.icons);
-
-      context.beginPath();
-      if (currentTool === 'square') {
-        const width = x - rect.left;
-        const height = y - rect.top;
-        context.rect(rect.left, rect.top, width, height);
-      } else if (currentTool === 'circle') {
-        const radius = Math.sqrt(
-          Math.pow(x - rect.left, 2) + Math.pow(y - rect.top, 2)
-        );
-        context.arc(rect.left, rect.top, radius, 0, 2 * Math.PI);
-      }
-      context.stroke();
-    }
-  };
-
-  const handleDragStart = (iconType: string) => {
-    setCurrentTool('icons');
-    setDraggedIcon(iconType);
-  };
-
-  const handleDrop = (e: React.DragEvent<HTMLCanvasElement>) => {
-    if (!draggedIcon || !canvasRef.current || !context) return;
-    
-    const rect = canvasRef.current.getBoundingClientRect();
-    const x = e.clientX - rect.left;
-    const y = e.clientY - rect.top;
-
-    const newIcons = [...placedIcons, { id: `${draggedIcon}-${Date.now()}`, x, y, type: draggedIcon }];
-    setPlacedIcons(newIcons);
-
-    // Salvar estado após adicionar ícone
-    saveToHistory();
-  };
-
-  const stopDrawing = () => {
-    if (!isDrawing || !context || !canvasRef.current) return;
-    setIsDrawing(false);
-    context.closePath();
-
-    if (currentTool === 'pencil' || currentTool === 'eraser') {
-      saveToHistory();
-    }
-  };
-
   return (
     <div className="flex flex-col bg-gray-900">
       {isLoading && (
@@ -270,57 +307,98 @@ const WarStrategy = () => {
         </div>
       )}
 
-      {/* Barra de ferramentas - Fixa no topo */}
-      <div className="sticky top-0 z-10 flex gap-4 p-4 bg-gray-800">
-        {/* Ferramentas de desenho */}
-        <div className="flex gap-2">
-          <button 
-            onClick={() => setCurrentTool('pencil')} 
+      {/* Barra de Ferramentas */}
+      <div className="flex gap-2 items-center mb-4">
+        <div className="flex gap-2 bg-gray-800 p-2 rounded-lg">
+          <button
+            onClick={() => setCurrentTool('pencil')}
             title="Lápis"
             className={`p-2 text-white hover:bg-gray-700 rounded-lg ${currentTool === 'pencil' ? 'bg-gray-700' : ''}`}
           >
             <Pencil className="w-5 h-5" />
           </button>
-          <button 
-            onClick={() => setCurrentTool('eraser')} 
-            title="Borracha"
-            className={`p-2 text-white hover:bg-gray-700 rounded-lg ${currentTool === 'eraser' ? 'bg-gray-700' : ''}`}
-          >
-            <Eraser className="w-5 h-5" />
-          </button>
-          <button 
-            onClick={() => setCurrentTool('square')} 
+          <button
+            onClick={() => setCurrentTool('square')}
             title="Quadrado"
             className={`p-2 text-white hover:bg-gray-700 rounded-lg ${currentTool === 'square' ? 'bg-gray-700' : ''}`}
           >
             <Square className="w-5 h-5" />
           </button>
-          <button 
-            onClick={() => setCurrentTool('circle')} 
+          <button
+            onClick={() => setCurrentTool('circle')}
             title="Círculo"
             className={`p-2 text-white hover:bg-gray-700 rounded-lg ${currentTool === 'circle' ? 'bg-gray-700' : ''}`}
           >
             <Circle className="w-5 h-5" />
           </button>
-        </div>
+          <button
+            onClick={() => setCurrentTool('arrow')}
+            title="Seta"
+            className={`p-2 text-white hover:bg-gray-700 rounded-lg ${currentTool === 'arrow' ? 'bg-gray-700' : ''}`}
+          >
+            <ArrowUp className="w-5 h-5 transform rotate-90" />
+          </button>
 
-        {/* Cores */}
-        <div className="flex gap-1 items-center">
-          {colors.map((color) => (
+          {/* Seletor de Cores */}
+          <div className="relative">
             <button
-              key={color}
-              onClick={() => setCurrentColor(color)}
-              className={`w-6 h-6 rounded-full border-2 ${
-                currentColor === color ? 'border-white' : 'border-transparent'
-              }`}
-              style={{ backgroundColor: color }}
-              title={`Cor ${color}`}
-            />
-          ))}
+              onClick={() => setIsColorPickerOpen(!isColorPickerOpen)}
+              title="Cores"
+              className={`p-2 text-white hover:bg-gray-700 rounded-lg ${isColorPickerOpen ? 'bg-gray-700' : ''}`}
+              style={{ borderBottom: `3px solid ${currentColor}` }}
+            >
+              <Palette className="w-5 h-5" />
+            </button>
+
+            {/* Menu Dropdown de Cores */}
+            {isColorPickerOpen && (
+              <div className="absolute top-full mt-2 -left-20 p-2 bg-gray-800 rounded-lg shadow-lg z-50">
+                <div className="flex gap-2">
+                  {colors.map((color) => (
+                    <button
+                      key={color}
+                      onClick={() => {
+                        setCurrentColor(color);
+                        setIsColorPickerOpen(false);
+                      }}
+                      className={`w-8 h-8 rounded-full border-2 hover:scale-110 transition-transform
+                        ${currentColor === color ? 'border-white scale-110 ring-2 ring-blue-500' : 'border-gray-600'}`}
+                      style={{ backgroundColor: color }}
+                      title={color === '#000000' ? 'Preto' :
+                             color === '#ff0000' ? 'Vermelho' :
+                             color === '#00ff00' ? 'Verde' :
+                             color === '#0000ff' ? 'Azul' :
+                             color === '#ffff00' ? 'Amarelo' :
+                             color === '#ff00ff' ? 'Rosa' :
+                             'Branco'}
+                    />
+                  ))}
+                </div>
+              </div>
+            )}
+          </div>
+
+          <div className="w-px h-6 bg-gray-700 mx-1" /> {/* Separador */}
+
+          <button
+            onClick={undo}
+            title="Desfazer"
+            className="p-2 text-white hover:bg-gray-700 rounded-lg"
+            disabled={historyIndex === 0}
+          >
+            <Undo className="w-5 h-5" />
+          </button>
+          <button
+            onClick={clearCanvas}
+            title="Limpar"
+            className="p-2 text-white hover:bg-gray-700 rounded-lg"
+          >
+            <Trash2 className="w-5 h-5" />
+          </button>
         </div>
 
-        {/* Tamanho do pincel */}
-        <div className="flex items-center gap-2">
+        {/* Controle de Tamanho */}
+        <div className="flex items-center gap-2 bg-gray-800 p-2 rounded-lg">
           <span className="text-white text-sm">Tamanho:</span>
           <input
             type="range"
@@ -330,25 +408,6 @@ const WarStrategy = () => {
             onChange={(e) => setBrushSize(Number(e.target.value))}
             className="w-24"
           />
-        </div>
-
-        {/* Ações */}
-        <div className="flex gap-2">
-          <button 
-            onClick={undo} 
-            title="Desfazer" 
-            className="p-2 text-white hover:bg-gray-700 rounded-lg disabled:opacity-50 disabled:cursor-not-allowed"
-            disabled={historyIndex <= 0}
-          >
-            <Undo className="w-5 h-5" />
-          </button>
-          <button 
-            onClick={clearCanvas} 
-            title="Limpar" 
-            className="p-2 text-white hover:bg-gray-700 rounded-lg"
-          >
-            <Trash2 className="w-5 h-5" />
-          </button>
         </div>
       </div>
 
