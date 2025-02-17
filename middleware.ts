@@ -14,11 +14,25 @@ export async function middleware(req: NextRequest) {
     return NextResponse.redirect(redirectUrl);
   }
 
-  // Se estiver autenticado e tentar acessar a página de login
-  if (session && req.nextUrl.pathname === '/') {
-    const redirectUrl = req.nextUrl.clone();
-    redirectUrl.pathname = '/players';
-    return NextResponse.redirect(redirectUrl);
+  // Se estiver autenticado, buscar o idOwner do membro
+  if (session) {
+    const { data: memberData } = await supabase
+      .from('member')
+      .select('idOwner')
+      .eq('user_id', session.user.id)
+      .single();
+
+    if (memberData) {
+      // Adiciona o idOwner ao objeto de resposta
+      res.headers.set('x-owner-id', memberData.idOwner.toString());
+    }
+
+    // Se estiver autenticado e tentar acessar a página de login
+    if (req.nextUrl.pathname === '/') {
+      const redirectUrl = req.nextUrl.clone();
+      redirectUrl.pathname = '/players';
+      return NextResponse.redirect(redirectUrl);
+    }
   }
 
   return res;

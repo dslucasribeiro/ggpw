@@ -4,6 +4,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { supabase } from '@/lib/supabase';
 import { AlertCircle } from 'lucide-react';
 import clsx from 'clsx';
+import { useOwner } from '@/hooks/useOwner';
 
 interface Player {
   id: number;
@@ -59,6 +60,7 @@ export default function Withdrawals() {
   const [editingCell, setEditingCell] = useState<{playerId: number, column: string} | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [playerPoints, setPlayerPoints] = useState<{[key: number]: PlayerPoints}>({});
+  const { ownerId, loading: ownerLoading } = useOwner();
 
   const getColumnName = (itemId: string): keyof WithdrawalValues | null => {
     const itemMap: { [key: string]: keyof WithdrawalValues } = {
@@ -100,6 +102,7 @@ export default function Withdrawals() {
         .from('players')
         .select('nick')
         .eq('id', playerId)
+        .eq('idOwner', ownerId)
         .single();
 
       if (!playerData) throw new Error('Player not found');
@@ -138,7 +141,9 @@ export default function Withdrawals() {
     }
   };
 
-  const loadData = useCallback(async () => {
+  const fetchData = useCallback(async () => {
+    if (ownerLoading) return;
+    
     try {
       setLoading(true);
 
@@ -146,6 +151,7 @@ export default function Withdrawals() {
       const { data: playersData, error: playersError } = await supabase
         .from('players')
         .select('id, nick, classe, nivel')
+        .eq('idOwner', ownerId)
         .order('nick');
 
       if (playersError) throw playersError;
@@ -157,7 +163,8 @@ export default function Withdrawals() {
           player_id,
           quantity,
           item_id
-        `);
+        `)
+        .eq('idOwner', ownerId);
 
       if (withdrawalsError) throw withdrawalsError;
 
@@ -205,11 +212,13 @@ export default function Withdrawals() {
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [ownerId, ownerLoading]);
 
   useEffect(() => {
-    loadData();
-  }, [loadData]);
+    if (!ownerLoading) {
+      fetchData();
+    }
+  }, [ownerLoading]);
 
   const handleCellClick = (playerId: number, column: string) => {
     setEditingCell({ playerId, column });
