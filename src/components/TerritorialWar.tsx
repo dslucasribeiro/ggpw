@@ -9,10 +9,12 @@ import { useMask } from '@react-input/mask';
 import { usePathname } from 'next/navigation';
 import ConfirmedPlayers from './ConfirmedPlayers';
 import WarStrategy from './WarStrategy';
+import { useOwnerContext } from '@/contexts/OwnerContext';
 
 interface TW {
   id: number;
   date: string;
+  idOwner: number;
 }
 
 export default function TerritorialWar() {
@@ -22,89 +24,98 @@ export default function TerritorialWar() {
   const [newTWDate, setNewTWDate] = useState('');
   const [isLoading, setIsLoading] = useState(true);
   const pathname = usePathname();
+  const { ownerId, loading: ownerLoading } = useOwnerContext();
 
   const inputRef = useMask({ mask: '99/99/9999', replacement: { 9: /\d/ } });
 
   // Buscar TWs
   useEffect(() => {
-    async function fetchTWs() {
-      setIsLoading(true);
-      try {
-        const { data, error } = await supabase
-          .from('territorial_wars')
-          .select('*')
-          .order('date', { ascending: true });
-
-        if (error) throw error;
-
-        // Converter as datas para o formato local
-        const formattedData = data?.map(tw => ({
-          ...tw,
-          date: tw.date.split('T')[0] // Remove a parte do tempo para evitar problemas de fuso horário
-        }));
-
-        setTerritorialWars(formattedData || []);
-        if (formattedData && formattedData.length > 0) {
-          setSelectedTW(formattedData[formattedData.length - 1]);
-        }
-      } catch (error) {
-        console.error('Erro ao carregar TWs:', error);
-      } finally {
-        setIsLoading(false);
-      }
+    if (!ownerLoading) {
+      fetchTWs();
     }
+  }, [ownerLoading]);
 
-    fetchTWs();
-  }, []);
-
-  // Adicionar nova TW
-  const handleAddTW = async () => {
+  async function fetchTWs() {
+    if (ownerLoading) return;
+    
+    setIsLoading(true);
     try {
-      if (!newTWDate) return;
+      const { data, error } = await supabase
+        .from('territorial_wars')
+        .select('*')
+        .eq('idOwner', ownerId)
+        .order('date', { ascending: true });
 
+      if (error) throw error;
+
+      // Converter as datas para o formato local
+      const formattedData = data?.map(tw => ({
+        ...tw,
+        date: tw.date.split('T')[0] // Remove a parte do tempo para evitar problemas de fuso horário
+      }));
+
+      setTerritorialWars(formattedData || []);
+      if (formattedData && formattedData.length > 0) {
+        setSelectedTW(formattedData[formattedData.length - 1]);
+      }
+    } catch (error) {
+      console.error('Erro ao carregar TWs:', error);
+    } finally {
+      setIsLoading(false);
+    }
+  }
+
+  const handleAddTW = async () => {
+    if (!newTWDate || ownerLoading) return;
+
+    try {
       // Converter a data do formato DD/MM/YYYY para YYYY-MM-DD
       const parsedDate = parse(newTWDate, 'dd/MM/yyyy', new Date());
       const formattedDate = format(parsedDate, 'yyyy-MM-dd');
 
       const { data, error } = await supabase
         .from('territorial_wars')
-        .insert([{ date: formattedDate }])
+        .insert([{ 
+          date: formattedDate,
+          idOwner: ownerId
+        }])
         .select()
         .single();
 
       if (error) throw error;
 
-      const newTW = {
-        ...data,
-        date: data.date.split('T')[0] // Remove a parte do tempo para evitar problemas de fuso horário
-      };
-
-      setTerritorialWars([...territorialWars, newTW]);
-      setSelectedTW(newTW);
-      setIsAddingTW(false);
+      // Atualizar a lista de TWs
+      setTerritorialWars(prev => [...prev, { 
+        ...data, 
+        date: data.date.split('T')[0]
+      }]);
+      
       setNewTWDate('');
+      setIsAddingTW(false);
     } catch (error) {
       console.error('Erro ao adicionar TW:', error);
     }
   };
 
-  // Remover TW
-  const handleRemoveTW = async (twId: number) => {
+  const handleDeleteTW = async (id: number) => {
+    if (ownerLoading) return;
+
     try {
       const { error } = await supabase
         .from('territorial_wars')
         .delete()
-        .eq('id', twId);
+        .eq('id', id)
+        .eq('idOwner', ownerId);
 
       if (error) throw error;
 
-      setTerritorialWars(territorialWars.filter(tw => tw.id !== twId));
-      if (selectedTW?.id === twId) {
-        const remainingTWs = territorialWars.filter(tw => tw.id !== twId);
-        setSelectedTW(remainingTWs.length > 0 ? remainingTWs[remainingTWs.length - 1] : null);
+      // Atualizar a lista de TWs
+      setTerritorialWars(prev => prev.filter(tw => tw.id !== id));
+      if (selectedTW?.id === id) {
+        setSelectedTW(null);
       }
     } catch (error) {
-      console.error('Erro ao remover TW:', error);
+      console.error('Erro ao deletar TW:', error);
     }
   };
 
@@ -116,6 +127,7 @@ export default function TerritorialWar() {
         const { data, error } = await supabase
           .from('territorial_wars')
           .select('*')
+          .eq('idOwner', ownerId)
           .order('date', { ascending: true });
 
         if (error) throw error;
@@ -171,7 +183,7 @@ export default function TerritorialWar() {
               <button
                 onClick={(e) => {
                   e.stopPropagation();
-                  handleRemoveTW(tw.id);
+                  handleDeleteTW(tw.id);
                 }}
                 className="absolute -top-1 -right-1 w-5 h-5 bg-red-500 rounded-full items-center justify-center text-white opacity-0 group-hover:opacity-100 hover:bg-red-600 transition-all hidden group-hover:flex"
               >

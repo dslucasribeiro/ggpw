@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react';
 import { supabase } from '@/lib/supabase';
 import { Settings } from 'lucide-react';
 import EventManagement from './EventManagement';
+import { useOwnerContext } from '@/contexts/OwnerContext';
 
 interface EventType {
   id: number;
@@ -11,6 +12,7 @@ interface EventType {
   day: string | null;
   hour: string | null;
   hidden: boolean;
+  idOwner: number;
 }
 
 const dayOrder: { [key: string]: number } = {
@@ -29,12 +31,16 @@ export default function EventList() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [isManagementOpen, setIsManagementOpen] = useState(false);
+  const { ownerId, loading: ownerLoading } = useOwnerContext();
 
   const fetchEvents = async () => {
+    if (ownerLoading) return;
+    
     try {
       const { data, error } = await supabase
         .from('event_types')
-        .select('id, name, day, hour, hidden')
+        .select('id, name, day, hour, hidden, idOwner')
+        .eq('idOwner', ownerId)
         .order('name');
 
       if (error) throw error;
@@ -56,8 +62,10 @@ export default function EventList() {
   };
 
   useEffect(() => {
-    fetchEvents();
-  }, []);
+    if (!ownerLoading) {
+      fetchEvents();
+    }
+  }, [ownerLoading]);
 
   if (loading) return <div className="p-4">Carregando eventos...</div>;
   if (error) return <div className="p-4 text-red-500">{error}</div>;

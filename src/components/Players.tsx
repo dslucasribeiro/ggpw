@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react';
 import { MagnifyingGlassIcon } from '@heroicons/react/24/outline';
 import { PencilIcon, TrashIcon, XMarkIcon } from '@heroicons/react/24/solid';
 import { supabase } from '../lib/supabase';
+import { useOwnerContext } from '@/contexts/OwnerContext';
 
 interface Player {
   id: number;
@@ -12,6 +13,7 @@ interface Player {
   classe: string;
   posicao: string;
   created_at: string;
+  idOwner: number;
 }
 
 const CLASSES = ['WR', 'MG', 'EA', 'EP', 'WB', 'WF'] as const;
@@ -31,7 +33,8 @@ export function Players() {
   const [selectedPosicao, setSelectedPosicao] = useState<string>('');
   const [selectedNivelRange, setSelectedNivelRange] = useState<string>('');
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
-  const [newPlayer, setNewPlayer] = useState<Omit<Player, 'id' | 'created_at'>>({
+  const { ownerId, loading: ownerLoading } = useOwnerContext();
+  const [newPlayer, setNewPlayer] = useState<Omit<Player, 'id' | 'created_at' | 'idOwner'>>({
     nick: '',
     nivel: 1,
     classe: CLASSES[0],
@@ -39,14 +42,17 @@ export function Players() {
   });
 
   useEffect(() => {
-    fetchPlayers();
-  }, []);
+    if (!ownerLoading) {
+      fetchPlayers();
+    }
+  }, [ownerLoading]);
 
   async function fetchPlayers() {
     try {
       const { data, error } = await supabase
         .from('players')
         .select('*')
+        .eq('idOwner', ownerId)
         .order('created_at', { ascending: false });
 
       if (error) throw error;
@@ -74,11 +80,12 @@ export function Players() {
     return matchesSearch && matchesClasse && matchesPosicao && matchesNivel;
   });
 
-  async function handleAddPlayer() {
+  async function handleAddPlayer(e: React.FormEvent) {
+    e.preventDefault();
     try {
       const { data, error } = await supabase
         .from('players')
-        .insert([newPlayer])
+        .insert([{ ...newPlayer, idOwner: ownerId }])
         .select()
         .single();
 
@@ -102,7 +109,8 @@ export function Players() {
       const { error } = await supabase
         .from('players')
         .delete()
-        .eq('id', id);
+        .eq('id', id)
+        .eq('idOwner', ownerId);
 
       if (error) throw error;
 

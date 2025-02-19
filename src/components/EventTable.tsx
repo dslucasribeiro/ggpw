@@ -5,6 +5,7 @@ import { format } from 'date-fns';
 import { Plus, X } from 'lucide-react';
 import clsx from 'clsx';
 import { supabase } from '@/lib/supabase';
+import { useOwnerContext } from '@/contexts/OwnerContext';
 
 interface EventTableProps {
   eventTypeId: number;
@@ -18,6 +19,7 @@ interface EventEntry {
   event_date: string;
   points: number;
   event_type_id: number;
+  idOwner: string;
 }
 
 export default function EventTable({ eventTypeId, eventWeight, title }: EventTableProps) {
@@ -27,13 +29,17 @@ export default function EventTable({ eventTypeId, eventWeight, title }: EventTab
   const [editingCell, setEditingCell] = useState<{ player: string; date: string; value: string } | null>(null);
   const [showDateInput, setShowDateInput] = useState(false);
   const [newDate, setNewDate] = useState('');
+  const { ownerId, loading: ownerLoading } = useOwnerContext();
 
   // Load players
   useEffect(() => {
     const loadPlayers = async () => {
+      if (ownerLoading) return;
+
       const { data, error } = await supabase
         .from('players')
         .select('nick')
+        .eq('idOwner', ownerId)
         .order('nick');
       
       if (error) {
@@ -44,16 +50,21 @@ export default function EventTable({ eventTypeId, eventWeight, title }: EventTab
       setPlayers(data.map(p => p.nick).filter(Boolean));
     };
 
-    loadPlayers();
-  }, []);
+    if (!ownerLoading) {
+      loadPlayers();
+    }
+  }, [ownerLoading]);
 
   // Load entries for this event type
   useEffect(() => {
     const loadEntries = async () => {
+      if (ownerLoading) return;
+
       const { data, error } = await supabase
         .from('event_entries')
         .select('*')
-        .eq('event_type_id', eventTypeId);
+        .eq('event_type_id', eventTypeId)
+        .eq('idOwner', ownerId);
 
       if (error) {
         console.error('Error loading entries:', error);
@@ -61,14 +72,14 @@ export default function EventTable({ eventTypeId, eventWeight, title }: EventTab
       }
 
       setEntries(data);
-
-      // Extract unique dates
       const uniqueDates = [...new Set(data.map(entry => entry.event_date))].sort();
       setDates(uniqueDates);
     };
 
-    loadEntries();
-  }, [eventTypeId]);
+    if (!ownerLoading) {
+      loadEntries();
+    }
+  }, [eventTypeId, ownerLoading]);
 
   const handleDateInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     let value = e.target.value;
@@ -106,7 +117,8 @@ export default function EventTable({ eventTypeId, eventWeight, title }: EventTab
               event_type_id: eventTypeId,
               player_name: player,
               event_date: formattedDate,
-              points: 0
+              points: 0,
+              idOwner: ownerId
             })
         );
 
@@ -116,7 +128,8 @@ export default function EventTable({ eventTypeId, eventWeight, title }: EventTab
         const { data, error } = await supabase
           .from('event_entries')
           .select('*')
-          .eq('event_type_id', eventTypeId);
+          .eq('event_type_id', eventTypeId)
+          .eq('idOwner', ownerId);
 
         if (error) throw error;
 
@@ -138,7 +151,8 @@ export default function EventTable({ eventTypeId, eventWeight, title }: EventTab
         .from('event_entries')
         .delete()
         .eq('event_type_id', eventTypeId)
-        .eq('event_date', dateToRemove);
+        .eq('event_date', dateToRemove)
+        .eq('idOwner', ownerId);
 
       if (deleteError) {
         console.error('Error deleting entries:', deleteError);
@@ -167,55 +181,47 @@ export default function EventTable({ eventTypeId, eventWeight, title }: EventTab
     return entry?.points || 0;
   };
 
-  const handlePointsChange = async (player: string, date: string, points: number) => {
-    try {
-      const existingEntry = entries.find(e => 
-        e.player_name === player && 
-        e.event_date === date &&
-        e.event_type_id === eventTypeId
-      );
+  const handleCellSubmit = async (player: string, date: string, points: number) => {
+    const existingEntry = entries.find(
+      e => e.player_name === player && e.event_date === date
+    );
 
+    try {
       if (existingEntry) {
         const { error } = await supabase
           .from('event_entries')
           .update({ points })
           .eq('id', existingEntry.id)
-          .eq('event_type_id', eventTypeId);
+          .eq('idOwner', ownerId);
 
         if (error) throw error;
       } else {
         const { error } = await supabase
           .from('event_entries')
-          .insert({
-            event_type_id: eventTypeId,
-            player_name: player,
-            event_date: date,
-            points
-          });
+          .insert([
+            {
+              player_name: player,
+              event_date: date,
+              points,
+              event_type_id: eventTypeId,
+              idOwner: ownerId
+            }
+          ]);
 
         if (error) throw error;
       }
 
-      // Atualizar estado local imediatamente
-      setEntries(prevEntries => {
-        if (existingEntry) {
-          return prevEntries.map(e => 
-            e.id === existingEntry.id 
-              ? { ...e, points }
-              : e
-          );
-        } else {
-          return [...prevEntries, {
-            id: Date.now().toString(), // ID temporário
-            event_type_id: eventTypeId,
-            player_name: player,
-            event_date: date,
-            points
-          }];
-        }
-      });
+      // Reload entries after update
+      const { data, error } = await supabase
+        .from('event_entries')
+        .select('*')
+        .eq('event_type_id', eventTypeId)
+        .eq('idOwner', ownerId);
+
+      if (error) throw error;
+      setEntries(data);
     } catch (error) {
-      console.error('Error updating points:', error);
+      console.error('Error updating entry:', error);
     }
   };
 
@@ -227,7 +233,7 @@ export default function EventTable({ eventTypeId, eventWeight, title }: EventTab
   const handleCellBlur = async () => {
     if (editingCell) {
       const points = parseInt(editingCell.value) || 0;
-      await handlePointsChange(editingCell.player, editingCell.date, points);
+      await handleCellSubmit(editingCell.player, editingCell.date, points);
       setEditingCell(null);
     }
   };

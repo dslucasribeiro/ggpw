@@ -3,6 +3,7 @@
 import { useState } from 'react';
 import { supabase } from '@/lib/supabase';
 import { Eye, EyeOff, Plus, X, Trash2 } from 'lucide-react';
+import { useOwnerContext } from '@/contexts/OwnerContext';
 
 interface EventType {
   id: number;
@@ -10,6 +11,7 @@ interface EventType {
   day: string | null;
   hour: string | null;
   hidden: boolean;
+  idOwner: number;
 }
 
 interface EventManagementProps {
@@ -78,83 +80,73 @@ const dayOptions = [
 export default function EventManagement({ isOpen, onClose, onEventUpdate, events }: EventManagementProps) {
   const [newEvent, setNewEvent] = useState<NewEventType>({
     name: '',
-    day: '',
+    day: dayOptions[0],
     hour: ''
   });
-  const [error, setError] = useState<string | null>(null);
-  const [deleteConfirmation, setDeleteConfirmation] = useState<{
-    isOpen: boolean;
-    eventId: number | null;
-    eventName: string;
-  }>({
+  const [deleteConfirmation, setDeleteConfirmation] = useState<{ isOpen: boolean; eventId: number; eventName: string }>({
     isOpen: false,
-    eventId: null,
+    eventId: 0,
     eventName: ''
   });
+  const { ownerId } = useOwnerContext();
 
   if (!isOpen) return null;
 
-  const toggleVisibility = async (event: EventType) => {
+  const handleAddEvent = async () => {
     try {
-      const { error } = await supabase
-        .from('event_types')
-        .update({ hidden: !event.hidden })
-        .eq('id', event.id);
-
-      if (error) throw error;
-      onEventUpdate();
-    } catch (err) {
-      console.error('Erro ao atualizar visibilidade:', err);
-    }
-  };
-
-  const handleDeleteEvent = async () => {
-    if (!deleteConfirmation.eventId) return;
-
-    try {
-      const { error } = await supabase
-        .from('event_types')
-        .delete()
-        .eq('id', deleteConfirmation.eventId);
-
-      if (error) throw error;
-
-      setDeleteConfirmation({ isOpen: false, eventId: null, eventName: '' });
-      onEventUpdate();
-    } catch (err) {
-      console.error('Erro ao excluir evento:', err);
-      setError('Erro ao excluir evento');
-    }
-  };
-
-  const handleAddEvent = async (e: React.FormEvent) => {
-    e.preventDefault();
-    try {
-      if (!newEvent.name || !newEvent.day || !newEvent.hour) {
-        setError('Preencha todos os campos');
-        return;
-      }
-
       const { error } = await supabase
         .from('event_types')
         .insert([
-          {
-            name: newEvent.name,
-            day: newEvent.day,
-            hour: newEvent.hour,
+          { 
+            ...newEvent,
             hidden: false,
-            weight: 0 // valor padrão para weight
+            idOwner: ownerId
           }
         ]);
 
       if (error) throw error;
 
-      setNewEvent({ name: '', day: '', hour: '' });
       onEventUpdate();
-      setError(null);
-    } catch (err) {
-      console.error('Erro ao adicionar evento:', err);
-      setError('Erro ao adicionar evento');
+      setNewEvent({
+        name: '',
+        day: dayOptions[0],
+        hour: ''
+      });
+    } catch (error) {
+      console.error('Error adding event:', error);
+    }
+  };
+
+  const handleToggleVisibility = async (event: EventType) => {
+    try {
+      const { error } = await supabase
+        .from('event_types')
+        .update({ hidden: !event.hidden })
+        .eq('id', event.id)
+        .eq('idOwner', ownerId);
+
+      if (error) throw error;
+
+      onEventUpdate();
+    } catch (error) {
+      console.error('Error toggling visibility:', error);
+    }
+  };
+
+  const handleDeleteEvent = async (eventId: number) => {
+    try {
+      const { error } = await supabase
+        .from('event_types')
+        .delete()
+        .eq('id', eventId)
+        .eq('idOwner', ownerId);
+
+      if (error) throw error;
+
+      onEventUpdate();
+      setDeleteConfirmation({ isOpen: false, eventId: 0, eventName: '' });
+    } catch (error) {
+      console.error('Error deleting event:', error);
     }
   };
 
@@ -173,7 +165,7 @@ export default function EventManagement({ isOpen, onClose, onEventUpdate, events
           </div>
 
           {/* Formulário para adicionar novo evento */}
-          <form onSubmit={handleAddEvent} className="mb-8 bg-gray-700 p-4 rounded-lg">
+          <form onSubmit={(e) => { e.preventDefault(); handleAddEvent(); }} className="mb-8 bg-gray-700 p-4 rounded-lg">
             <h3 className="text-lg font-semibold mb-4 text-white">Adicionar Novo Evento</h3>
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
               <div>
@@ -209,7 +201,6 @@ export default function EventManagement({ isOpen, onClose, onEventUpdate, events
                 />
               </div>
             </div>
-            {error && <p className="text-red-400 mt-2 text-sm">{error}</p>}
             <button
               type="submit"
               className="mt-4 bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded flex items-center gap-2"
@@ -239,7 +230,7 @@ export default function EventManagement({ isOpen, onClose, onEventUpdate, events
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-200">
                       <div className="flex items-center gap-4">
                         <button
-                          onClick={() => toggleVisibility(event)}
+                          onClick={() => handleToggleVisibility(event)}
                           className="hover:text-blue-400 transition-colors"
                           title={event.hidden ? "Mostrar evento" : "Ocultar evento"}
                         >
@@ -272,8 +263,8 @@ export default function EventManagement({ isOpen, onClose, onEventUpdate, events
 
       <DeleteConfirmation
         isOpen={deleteConfirmation.isOpen}
-        onClose={() => setDeleteConfirmation({ isOpen: false, eventId: null, eventName: '' })}
-        onConfirm={handleDeleteEvent}
+        onClose={() => setDeleteConfirmation({ isOpen: false, eventId: 0, eventName: '' })}
+        onConfirm={() => handleDeleteEvent(deleteConfirmation.eventId)}
         eventName={deleteConfirmation.eventName}
       />
     </div>

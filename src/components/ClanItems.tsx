@@ -3,18 +3,21 @@
 import { useState, useEffect } from 'react';
 import { Plus, Pencil, Trash2, X, Check } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
+import { useOwnerContext } from '@/contexts/OwnerContext';
 
 interface ClanItem {
   id: number;
   item_name: string;
   quantity: number;
   score: number | null;
+  idOwner: number;
 }
 
 interface NewItem {
   item_name: string;
   quantity: number;
   score: number | null;
+  idOwner: number;
 }
 
 export default function ClanItems() {
@@ -22,16 +25,22 @@ export default function ClanItems() {
   const [loading, setLoading] = useState(true);
   const [newItem, setNewItem] = useState<NewItem | null>(null);
   const [editingItem, setEditingItem] = useState<ClanItem | null>(null);
+  const { ownerId, loading: ownerLoading } = useOwnerContext();
 
   useEffect(() => {
-    loadItems();
-  }, []);
+    if (!ownerLoading) {
+      loadItems();
+    }
+  }, [ownerLoading]);
 
   const loadItems = async () => {
+    if (ownerLoading) return;
+    
     try {
       const { data, error } = await supabase
         .from('clan_items')
         .select('*')
+        .eq('idOwner', ownerId)
         .order('item_name');
 
       if (error) throw error;
@@ -44,7 +53,12 @@ export default function ClanItems() {
   };
 
   const handleAddItem = () => {
-    setNewItem({ item_name: '', quantity: 0, score: null });
+    setNewItem({ 
+      item_name: '', 
+      quantity: 0, 
+      score: null,
+      idOwner: ownerId
+    });
   };
 
   const handleSaveNewItem = async () => {
@@ -53,42 +67,35 @@ export default function ClanItems() {
     try {
       const { error } = await supabase
         .from('clan_items')
-        .insert([{ 
-          item_name: newItem.item_name,
-          quantity: newItem.quantity || 0,
-          score: newItem.score
-        }]);
+        .insert([newItem])
+        .select()
+        .single();
 
       if (error) throw error;
 
+      await loadItems();
       setNewItem(null);
-      loadItems();
     } catch (error) {
-      console.error('Error adding item:', error);
+      console.error('Error saving new item:', error);
     }
   };
 
-  const handleEditItem = (item: ClanItem) => {
-    setEditingItem(item);
-  };
-
-  const handleSaveEdit = async () => {
-    if (!editingItem) return;
-
+  const handleUpdateItem = async (item: ClanItem) => {
     try {
       const { error } = await supabase
         .from('clan_items')
-        .update({ 
-          item_name: editingItem.item_name,
-          quantity: editingItem.quantity,
-          score: editingItem.score
+        .update({
+          item_name: item.item_name,
+          quantity: item.quantity,
+          score: item.score
         })
-        .eq('id', editingItem.id);
+        .eq('id', item.id)
+        .eq('idOwner', ownerId);
 
       if (error) throw error;
 
+      await loadItems();
       setEditingItem(null);
-      loadItems();
     } catch (error) {
       console.error('Error updating item:', error);
     }
@@ -99,11 +106,12 @@ export default function ClanItems() {
       const { error } = await supabase
         .from('clan_items')
         .delete()
-        .eq('id', id);
+        .eq('id', id)
+        .eq('idOwner', ownerId);
 
       if (error) throw error;
 
-      loadItems();
+      await loadItems();
     } catch (error) {
       console.error('Error deleting item:', error);
     }
@@ -231,7 +239,7 @@ export default function ClanItems() {
                     {editingItem?.id === item.id ? (
                       <>
                         <button
-                          onClick={handleSaveEdit}
+                          onClick={() => handleUpdateItem(editingItem)}
                           className="text-green-500 hover:text-green-400"
                         >
                           <Check className="w-4 h-4" />
@@ -246,7 +254,7 @@ export default function ClanItems() {
                     ) : (
                       <>
                         <button
-                          onClick={() => handleEditItem(item)}
+                          onClick={() => setEditingItem(item)}
                           className="text-blue-500 hover:text-blue-400"
                         >
                           <Pencil className="w-4 h-4" />

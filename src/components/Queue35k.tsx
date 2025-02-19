@@ -4,6 +4,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { Check, CheckCircle2, Plus, X, Trash2 } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
 import clsx from 'clsx';
+import { useOwnerContext } from '@/contexts/OwnerContext';
 
 const WEAPONS = [
   'Xuan De',
@@ -24,6 +25,7 @@ interface QueueItem {
   weapon: Weapon | null;
   status: string;
   is_completed: boolean;
+  idOwner: number;
 }
 
 interface DeliveredItem {
@@ -31,6 +33,7 @@ interface DeliveredItem {
   player_name: string;
   weapon: Weapon | null;
   completed_at: string;
+  idOwner: number;
 }
 
 export default function Queue35k() {
@@ -41,13 +44,17 @@ export default function Queue35k() {
   const [editingStatus, setEditingStatus] = useState<{ id: number; status: string } | null>(null);
   const [addingPlayer, setAddingPlayer] = useState(false);
   const [newPlayerName, setNewPlayerName] = useState('');
+  const { ownerId, loading: ownerLoading } = useOwnerContext();
 
   const loadData = useCallback(async () => {
+    if (ownerLoading) return;
+
     try {
       // Carregar fila
       const { data: queueData, error: queueError } = await supabase
         .from('queue_35k')
         .select('*')
+        .eq('idOwner', ownerId)
         .order('ordem');
 
       if (queueError) throw queueError;
@@ -56,6 +63,7 @@ export default function Queue35k() {
       const { data: deliveredData, error: deliveredError } = await supabase
         .from('delivered_35k')
         .select('*')
+        .eq('idOwner', ownerId)
         .order('completed_at', { ascending: false });
 
       if (deliveredError) throw deliveredError;
@@ -64,24 +72,55 @@ export default function Queue35k() {
       setDeliveredItems(deliveredData || []);
     } catch (error) {
       console.error('Error loading data:', error);
+    } finally {
+      setLoading(false);
     }
-  }, []);
+  }, [ownerLoading, ownerId]);
 
   useEffect(() => {
-    const loadInitialData = async () => {
-      setLoading(true);
+    if (!ownerLoading) {
+      loadData();
+    }
+  }, [ownerLoading, loadData]);
+
+  const handleAddPlayer = async () => {
+    if (!newPlayerName.trim()) return;
+
+    try {
+      const newOrder = queueItems.length + 1;
+      const { data, error } = await supabase
+        .from('queue_35k')
+        .insert([
+          {
+            player_name: newPlayerName.trim(),
+            ordem: newOrder,
+            weapon: null,
+            status: '',
+            is_completed: false,
+            idOwner: ownerId
+          }
+        ])
+        .select()
+        .single();
+
+      if (error) throw error;
+
+      setQueueItems(prev => [...prev, data]);
+      setNewPlayerName('');
+      setAddingPlayer(false);
+    } catch (error) {
+      console.error('Error adding player:', error);
       await loadData();
-      setLoading(false);
-    };
-    loadInitialData();
-  }, [loadData]);
+    }
+  };
 
   const handleWeaponSelect = async (id: number, weapon: Weapon) => {
     try {
       const { error } = await supabase
         .from('queue_35k')
         .update({ weapon })
-        .eq('id', id);
+        .eq('id', id)
+        .eq('idOwner', ownerId);
 
       if (error) throw error;
       
@@ -102,7 +141,8 @@ export default function Queue35k() {
       const { error } = await supabase
         .from('queue_35k')
         .update({ status })
-        .eq('id', id);
+        .eq('id', id)
+        .eq('idOwner', ownerId);
 
       if (error) throw error;
       
@@ -118,17 +158,19 @@ export default function Queue35k() {
     setEditingStatus(null);
   };
 
-  const handleComplete = async (item: QueueItem) => {
+  const handleCompleteItem = async (item: QueueItem) => {
     try {
       // Adicionar aos entregues
-      const { data: insertedItem, error: insertError } = await supabase
+      const { error: insertError } = await supabase
         .from('delivered_35k')
-        .insert([{
-          player_name: item.player_name,
-          weapon: item.weapon
-        }])
-        .select()
-        .single();
+        .insert([
+          {
+            player_name: item.player_name,
+            weapon: item.weapon,
+            completed_at: new Date().toISOString(),
+            idOwner: ownerId
+          }
+        ]);
 
       if (insertError) throw insertError;
 
@@ -136,12 +178,13 @@ export default function Queue35k() {
       const { error: deleteError } = await supabase
         .from('queue_35k')
         .delete()
-        .eq('id', item.id);
+        .eq('id', item.id)
+        .eq('idOwner', ownerId);
 
       if (deleteError) throw deleteError;
 
       // Atualizar estados localmente
-      setDeliveredItems(prev => [insertedItem, ...prev]);
+      setDeliveredItems(prev => [item, ...prev]);
       setQueueItems(prev => {
         const filtered = prev.filter(i => i.id !== item.id);
         return filtered.map((item, index) => ({
@@ -165,6 +208,7 @@ export default function Queue35k() {
               .from('queue_35k')
               .update({ ordem: update.ordem })
               .eq('id', update.id)
+              .eq('idOwner', ownerId)
           )
         );
       }
@@ -181,7 +225,8 @@ export default function Queue35k() {
       const { error: deleteError } = await supabase
         .from('queue_35k')
         .delete()
-        .eq('id', id);
+        .eq('id', id)
+        .eq('idOwner', ownerId);
 
       if (deleteError) throw deleteError;
 
@@ -209,6 +254,7 @@ export default function Queue35k() {
               .from('queue_35k')
               .update({ ordem: update.ordem })
               .eq('id', update.id)
+              .eq('idOwner', ownerId)
           )
         );
       }
@@ -225,7 +271,8 @@ export default function Queue35k() {
       const { error: deleteError } = await supabase
         .from('delivered_35k')
         .delete()
-        .eq('id', id);
+        .eq('id', id)
+        .eq('idOwner', ownerId);
 
       if (deleteError) throw deleteError;
 
@@ -297,31 +344,7 @@ export default function Queue35k() {
                     <td className="px-4 py-2">
                       <div className="flex items-center gap-2">
                         <button
-                          onClick={async () => {
-                            if (!newPlayerName.trim()) return;
-                            try {
-                              const nextOrder = queueItems.length + 1;
-                              const { data: newItem, error } = await supabase
-                                .from('queue_35k')
-                                .insert([{
-                                  player_name: newPlayerName.trim(),
-                                  ordem: nextOrder,
-                                  weapon: editingWeapon?.weapon || null
-                                }])
-                                .select()
-                                .single();
-
-                              if (error) throw error;
-
-                              setQueueItems(prev => [...prev, newItem]);
-                              setNewPlayerName('');
-                              setEditingWeapon(null);
-                              setAddingPlayer(false);
-                            } catch (error) {
-                              console.error('Error adding player:', error);
-                              await loadData();
-                            }
-                          }}
+                          onClick={handleAddPlayer}
                           className="text-green-500 hover:text-green-400"
                         >
                           <Check className="w-4 h-4" />
@@ -395,7 +418,7 @@ export default function Queue35k() {
                     <td className="px-4 py-2">
                       <div className="flex items-center gap-2">
                         <button
-                          onClick={() => handleComplete(item)}
+                          onClick={() => handleCompleteItem(item)}
                           disabled={!item.weapon}
                           className={clsx(
                             "flex items-center justify-center w-8 h-8 rounded",

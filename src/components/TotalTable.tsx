@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react';
 import { supabase } from '@/lib/supabase';
 import clsx from 'clsx';
+import { useOwnerContext } from '@/contexts/OwnerContext';
 
 interface Player {
   nick: string;
@@ -10,23 +11,30 @@ interface Player {
   pontos_restantes: number;
   pontos_acumulados: number;
   retiradas: number;
+  idOwner: number;
 }
 
 export default function TotalTable() {
   const [players, setPlayers] = useState<Player[]>([]);
   const [loading, setLoading] = useState(true);
+  const { ownerId, loading: ownerLoading } = useOwnerContext();
 
   useEffect(() => {
-    loadData();
-  }, []);
+    if (!ownerLoading) {
+      loadData();
+    }
+  }, [ownerLoading]);
 
   const loadData = async () => {
+    if (ownerLoading) return;
+    
     setLoading(true);
     try {
       // Carregar players
       const { data: playersData, error: playersError } = await supabase
         .from('players')
         .select('*')
+        .eq('idOwner', ownerId)
         .order('nick');
 
       if (playersError) throw playersError;
@@ -34,25 +42,24 @@ export default function TotalTable() {
       // Carregar todos os eventos
       const { data: eventsData, error: eventsError } = await supabase
         .from('event_entries')
-        .select('*');
+        .select('*')
+        .eq('idOwner', ownerId);
 
       if (eventsError) throw eventsError;
 
       // Carregar itens do clã e suas pontuações
       const { data: clanItems, error: clanItemsError } = await supabase
         .from('clan_items')
-        .select('id, item_name, score');
+        .select('id, item_name, score')
+        .eq('idOwner', ownerId);
 
       if (clanItemsError) throw clanItemsError;
 
       // Carregar todas as retiradas
       const { data: withdrawalsData, error: withdrawalsError } = await supabase
         .from('withdrawals')
-        .select(`
-          player_id,
-          quantity,
-          item_id
-        `);
+        .select('*')
+        .eq('idOwner', ownerId);
 
       if (withdrawalsError) throw withdrawalsError;
 
@@ -85,7 +92,8 @@ export default function TotalTable() {
           classe: player.classe || '',
           retiradas: totalRetiradas,
           pontos_acumulados: pontosAcumulados,
-          pontos_restantes: pontosAcumulados - totalRetiradas
+          pontos_restantes: pontosAcumulados - totalRetiradas,
+          idOwner: ownerId
         };
       }));
 

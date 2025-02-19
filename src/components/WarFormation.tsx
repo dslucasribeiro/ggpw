@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { supabase } from '@/lib/supabase';
+import { useOwnerContext } from '@/contexts/OwnerContext';
 import {
   DndContext,
   closestCenter,
@@ -117,12 +118,12 @@ const SortableTableItem = ({ tableName, onRemove }: SortableTableItemProps) => {
 };
 
 export default function WarFormation({ twId: initialTwId }: Props) {
+  const [warDates, setWarDates] = useState<{ id: number; date: string }[]>([]);
+  const [selectedTwId, setSelectedTwId] = useState<string>();
   const [formations, setFormations] = useState<WarFormationRow[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-  const [warDates, setWarDates] = useState<Array<{ id: number; date: string }>>([]);
-  const [selectedTwId, setSelectedTwId] = useState<string | undefined>(initialTwId);
   const [confirmedPlayers, setConfirmedPlayers] = useState<ConfirmedPlayer[]>([]);
+  const [error, setError] = useState<string | null>(null);
+  const [isLoading, setIsLoading] = useState(false);
   const [showPlayerModal, setShowPlayerModal] = useState(false);
   const [selectedPosition, setSelectedPosition] = useState<number | null>(null);
   const [selectedTable, setSelectedTable] = useState<string | null>(null);
@@ -130,6 +131,7 @@ export default function WarFormation({ twId: initialTwId }: Props) {
   const [tables, setTables] = useState<string[]>(['CT 1']);
   const [newTableName, setNewTableName] = useState("");
   const [searchTerm, setSearchTerm] = useState("");
+  const { ownerId } = useOwnerContext();
 
   const loadExistingTables = async (twId: string) => {
     try {
@@ -137,6 +139,7 @@ export default function WarFormation({ twId: initialTwId }: Props) {
         .from('war_formation')
         .select('table_name')
         .eq('tw_id', twId)
+        .eq('idOwner', ownerId)
         .order('table_name');
 
       if (error) {
@@ -160,6 +163,7 @@ export default function WarFormation({ twId: initialTwId }: Props) {
         const { data, error } = await supabase
           .from('territorial_wars')
           .select('id, date')
+          .eq('idOwner', ownerId)
           .order('date', { ascending: true });
 
         if (error) {
@@ -220,6 +224,7 @@ export default function WarFormation({ twId: initialTwId }: Props) {
             )
           `)
           .eq('tw_id', selectedTwId)
+          .eq('idOwner', ownerId)
           .order('position');
 
         if (error) {
@@ -255,7 +260,8 @@ export default function WarFormation({ twId: initialTwId }: Props) {
               nivel
             )
           `)
-          .eq('tw_id', selectedTwId);
+          .eq('tw_id', selectedTwId)
+          .eq('idOwner', ownerId);
 
         if (error) {
           console.error('Error fetching confirmed players:', error);
@@ -312,7 +318,8 @@ export default function WarFormation({ twId: initialTwId }: Props) {
           tw_id: Number(selectedTwId),
           player_id: playerId,
           position,
-          table_name: tableName
+          table_name: tableName,
+          idOwner: ownerId
         }, {
           onConflict: 'tw_id,position,table_name'
         });
@@ -340,6 +347,7 @@ export default function WarFormation({ twId: initialTwId }: Props) {
               )
             `)
             .eq('tw_id', selectedTwId)
+            .eq('idOwner', ownerId)
             .order('position');
 
           if (error) throw error;
@@ -365,7 +373,8 @@ export default function WarFormation({ twId: initialTwId }: Props) {
           player_id: null,
           status: null
         })
-        .eq('id', formationId);
+        .eq('id', formationId)
+        .eq('idOwner', ownerId);
 
       if (error) {
         console.error('Error removing player:', error);
@@ -411,7 +420,8 @@ export default function WarFormation({ twId: initialTwId }: Props) {
       const { error } = await supabase
         .from('war_formation')
         .update({ status })
-        .eq('id', formationId);
+        .eq('id', formationId)
+        .eq('idOwner', ownerId);
 
       if (error) {
         console.error('Error updating status:', error);
@@ -433,7 +443,8 @@ export default function WarFormation({ twId: initialTwId }: Props) {
         .from('war_formation')
         .update({ table_name: newTitle })
         .eq('tw_id', selectedTwId)
-        .eq('table_name', oldTitle);
+        .eq('table_name', oldTitle)
+        .eq('idOwner', ownerId);
 
       if (error) {
         console.error('Error updating table title:', error);
@@ -463,7 +474,8 @@ export default function WarFormation({ twId: initialTwId }: Props) {
       const newRows = Array.from({ length: 10 }).map((_, index) => ({
         tw_id: parseInt(selectedTwId),
         position: index + 1,
-        table_name: newTableName.trim()
+        table_name: newTableName.trim(),
+        idOwner: ownerId
       }));
 
       const { error } = await supabase
@@ -491,6 +503,7 @@ export default function WarFormation({ twId: initialTwId }: Props) {
         `)
         .eq('tw_id', selectedTwId)
         .eq('table_name', newTableName.trim())
+        .eq('idOwner', ownerId)
         .order('position');
 
       if (newFormations) {
@@ -509,7 +522,8 @@ export default function WarFormation({ twId: initialTwId }: Props) {
         .from('war_formation')
         .delete()
         .eq('table_name', tableName)
-        .eq('tw_id', selectedTwId);
+        .eq('tw_id', selectedTwId)
+        .eq('idOwner', ownerId);
 
       if (error) {
         console.error('Error removing table:', error);

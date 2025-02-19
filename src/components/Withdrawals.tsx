@@ -4,7 +4,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { supabase } from '@/lib/supabase';
 import { AlertCircle } from 'lucide-react';
 import clsx from 'clsx';
-import { useOwner } from '@/hooks/useOwner';
+import { useOwnerContext } from '@/contexts/OwnerContext';
 
 interface Player {
   id: number;
@@ -60,7 +60,7 @@ export default function Withdrawals() {
   const [editingCell, setEditingCell] = useState<{playerId: number, column: string} | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [playerPoints, setPlayerPoints] = useState<{[key: number]: PlayerPoints}>({});
-  const { ownerId, loading: ownerLoading } = useOwner();
+  const { ownerId, loading: ownerLoading } = useOwnerContext();
 
   const getColumnName = (itemId: string): keyof WithdrawalValues | null => {
     const itemMap: { [key: string]: keyof WithdrawalValues } = {

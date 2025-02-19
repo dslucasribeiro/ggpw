@@ -5,6 +5,7 @@ import { supabase } from '@/lib/supabase';
 import { ChevronDown, ChevronUp, Plus, X } from 'lucide-react';
 import { format, parseISO } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
+import { useOwnerContext } from '@/contexts/OwnerContext';
 
 interface Player {
   id: number;
@@ -12,6 +13,7 @@ interface Player {
   classe: string;
   posicao: string;
   nivel: number;
+  idOwner: number;
 }
 
 interface ConfirmedPlayersProps {
@@ -30,14 +32,18 @@ export default function ConfirmedPlayers({ twId, twDate, onUpdate }: ConfirmedPl
     key: keyof Player;
     direction: 'asc' | 'desc';
   } | null>(null);
+  const { ownerId, loading: ownerLoading } = useOwnerContext();
 
   const fetchConfirmedPlayers = useCallback(async () => {
+    if (ownerLoading) return;
+    
     setIsLoading(true);
     try {
       // Buscar todos os players
       const { data: allPlayers, error: playersError } = await supabase
         .from('players')
         .select('*')
+        .eq('idOwner', ownerId)
         .order('nick');
 
       if (playersError) {
@@ -49,51 +55,57 @@ export default function ConfirmedPlayers({ twId, twDate, onUpdate }: ConfirmedPl
       const { data: confirmed, error: confirmedError } = await supabase
         .from('confirmed_players')
         .select('*, players!confirmed_players_player_id_fkey(*)')
-        .eq('tw_id', twId);
+        .eq('tw_id', twId)
+        .eq('idOwner', ownerId);
 
       if (confirmedError) {
-        console.error('Erro ao buscar confirmados:', confirmedError);
+        console.error('Erro ao buscar players confirmados:', confirmedError);
         throw confirmedError;
       }
 
-      // Formatar players confirmados
-      const confirmedPlayersData = confirmed.map((cp: { player_id: string, players: Player }) => ({
-        ...cp.players
-      }));
-
       // Filtrar players disponíveis (não confirmados)
-      const confirmedIds = new Set(confirmedPlayersData.map((p: Player) => p.id));
-      const availablePlayersData = allPlayers.filter((p: Player) => !confirmedIds.has(p.id));
+      const confirmedIds = confirmed?.map(c => c.player_id) || [];
+      const available = allPlayers?.filter(p => !confirmedIds.includes(p.id)) || [];
 
-      setAvailablePlayers(availablePlayersData);
-      setConfirmedPlayers(confirmedPlayersData);
+      setAvailablePlayers(available);
+      setConfirmedPlayers(confirmed?.map(c => ({
+        id: c.player_id,
+        nick: c.players.nick,
+        classe: c.players.classe,
+        posicao: c.players.posicao,
+        nivel: c.players.nivel,
+        idOwner: c.players.idOwner
+      })) || []);
     } catch (error) {
-      console.error('Erro ao carregar players:', error);
+      console.error('Erro ao buscar dados:', error);
     } finally {
       setIsLoading(false);
     }
-  }, [twId]);
+  }, [twId, ownerLoading, ownerId]);
 
   useEffect(() => {
-    fetchConfirmedPlayers();
-  }, [fetchConfirmedPlayers]);
+    if (!ownerLoading) {
+      fetchConfirmedPlayers();
+    }
+  }, [fetchConfirmedPlayers, ownerLoading]);
 
   // Confirmar player
   const handleConfirmPlayer = async (player: Player) => {
+    if (ownerLoading) return;
+
     try {
       const { error } = await supabase
         .from('confirmed_players')
         .insert([{ 
           player_id: player.id,
           tw_id: twId,
-          confirmed_at: new Date().toISOString()
+          confirmed_at: new Date().toISOString(),
+          idOwner: ownerId
         }]);
 
       if (error) throw error;
 
-      setConfirmedPlayers([...confirmedPlayers, player]);
-      setAvailablePlayers(availablePlayers.filter(p => p.id !== player.id));
-      setIsAddingPlayer(false);
+      await fetchConfirmedPlayers();
       onUpdate();
     } catch (error) {
       console.error('Erro ao confirmar player:', error);
@@ -102,20 +114,19 @@ export default function ConfirmedPlayers({ twId, twDate, onUpdate }: ConfirmedPl
 
   // Remover confirmação
   const handleRemoveConfirmation = async (playerId: number) => {
+    if (ownerLoading) return;
+
     try {
       const { error } = await supabase
         .from('confirmed_players')
         .delete()
         .eq('player_id', playerId)
-        .eq('tw_id', twId);
+        .eq('tw_id', twId)
+        .eq('idOwner', ownerId);
 
       if (error) throw error;
 
-      const removedPlayer = confirmedPlayers.find(p => p.id === playerId);
-      if (removedPlayer) {
-        setAvailablePlayers([...availablePlayers, removedPlayer]);
-        setConfirmedPlayers(confirmedPlayers.filter(p => p.id !== playerId));
-      }
+      await fetchConfirmedPlayers();
       onUpdate();
     } catch (error) {
       console.error('Erro ao remover confirmação:', error);
