@@ -42,20 +42,29 @@ export function Players() {
   });
 
   useEffect(() => {
-    if (!ownerLoading) {
+    if (!ownerLoading && ownerId) {
       fetchPlayers();
     }
-  }, [ownerLoading]);
+  }, [ownerLoading, ownerId]);
 
   async function fetchPlayers() {
     try {
+      if (!ownerId) {
+        console.log('ownerId não disponível ainda');
+        return;
+      }
+
       const { data, error } = await supabase
         .from('players')
         .select('*')
         .eq('idOwner', ownerId)
         .order('created_at', { ascending: false });
 
-      if (error) throw error;
+      if (error) {
+        console.error('Erro ao buscar players:', error);
+        throw error;
+      }
+      
       setPlayers(data || []);
     } catch (error) {
       console.error('Error fetching players:', error);
