@@ -26,7 +26,7 @@ export default function TotalTable() {
   }, [ownerLoading]);
 
   const loadData = async () => {
-    if (ownerLoading) return;
+    if (ownerLoading || !ownerId) return;
     
     setLoading(true);
     try {
@@ -86,6 +86,11 @@ export default function TotalTable() {
           }
           return total;
         }, 0);
+        
+        // Garantir que idOwner seja sempre um número
+        if (!ownerId) {
+          throw new Error('Owner ID não encontrado');
+        }
         
         return {
           nick: player.nick,
