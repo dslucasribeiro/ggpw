@@ -20,6 +20,7 @@ type Weapon = typeof WEAPONS[number];
 
 interface QueueItem {
   id: number;
+  created_at: string;
   ordem: number;
   player_name: string;
   weapon: Weapon | null;
@@ -30,6 +31,7 @@ interface QueueItem {
 
 interface DeliveredItem {
   id: number;
+  created_at: string;
   player_name: string;
   weapon: Weapon | null;
   completed_at: string;
@@ -161,16 +163,17 @@ export default function Queue35k() {
   const handleCompleteItem = async (item: QueueItem) => {
     try {
       // Adicionar aos entregues
-      const { error: insertError } = await supabase
+      const { data: deliveredItem, error: insertError } = await supabase
         .from('delivered_35k')
         .insert([
           {
             player_name: item.player_name,
             weapon: item.weapon,
-            completed_at: new Date().toISOString(),
             idOwner: ownerId
           }
-        ]);
+        ])
+        .select()
+        .single();
 
       if (insertError) throw insertError;
 
@@ -184,37 +187,36 @@ export default function Queue35k() {
       if (deleteError) throw deleteError;
 
       // Atualizar estados localmente
-      setDeliveredItems(prev => [item, ...prev]);
+      if (deliveredItem) {
+        setDeliveredItems(prev => [deliveredItem, ...prev]);
+      }
+
       setQueueItems(prev => {
-        const filtered = prev.filter(i => i.id !== item.id);
-        return filtered.map((item, index) => ({
+        const updatedItems = prev.filter(i => i.id !== item.id);
+        const reorderedItems = updatedItems.map((item, index) => ({
           ...item,
           ordem: index + 1
         }));
-      });
 
-      // Atualizar ordens no banco
-      const updates = queueItems
-        .filter(i => i.id !== item.id)
-        .map((item, index) => ({
-          id: item.id,
-          ordem: index + 1
-        }));
-
-      if (updates.length > 0) {
-        await Promise.all(
-          updates.map(update =>
-            supabase
-              .from('queue_35k')
-              .update({ ordem: update.ordem })
-              .eq('id', update.id)
-              .eq('idOwner', ownerId)
-          )
+        // Atualizar ordens no banco
+        const updatePromises = reorderedItems.map(item => 
+          supabase
+            .from('queue_35k')
+            .update({ ordem: item.ordem })
+            .eq('id', item.id)
+            .eq('idOwner', ownerId)
         );
-      }
+
+        // Executar todas as atualizações em paralelo
+        Promise.all(updatePromises).catch(error => {
+          console.error('Error updating orders:', error);
+        });
+
+        return reorderedItems;
+      });
     } catch (error) {
       console.error('Error completing item:', error);
-      await loadData(); // Recarregar em caso de erro
+      await loadData(); // Recarregar dados em caso de erro
     }
   };
 

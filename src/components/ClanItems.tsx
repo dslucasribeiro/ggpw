@@ -28,13 +28,13 @@ export default function ClanItems() {
   const { ownerId, loading: ownerLoading } = useOwnerContext();
 
   useEffect(() => {
-    if (!ownerLoading) {
+    if (!ownerLoading && ownerId) {
       loadItems();
     }
-  }, [ownerLoading]);
+  }, [ownerLoading, ownerId]);
 
   const loadItems = async () => {
-    if (ownerLoading) return;
+    if (ownerLoading || !ownerId) return;
     
     try {
       const { data, error } = await supabase
@@ -53,6 +53,8 @@ export default function ClanItems() {
   };
 
   const handleAddItem = () => {
+    if (!ownerId) return;
+    
     setNewItem({ 
       item_name: '', 
       quantity: 0, 
@@ -62,7 +64,7 @@ export default function ClanItems() {
   };
 
   const handleSaveNewItem = async () => {
-    if (!newItem?.item_name) return;
+    if (!newItem?.item_name || !ownerId) return;
 
     try {
       const { error } = await supabase
@@ -81,6 +83,8 @@ export default function ClanItems() {
   };
 
   const handleUpdateItem = async (item: ClanItem) => {
+    if (!ownerId) return;
+
     try {
       const { error } = await supabase
         .from('clan_items')
@@ -102,6 +106,8 @@ export default function ClanItems() {
   };
 
   const handleDeleteItem = async (id: number) => {
+    if (!ownerId) return;
+
     try {
       const { error } = await supabase
         .from('clan_items')
