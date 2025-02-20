@@ -31,7 +31,7 @@ interface SettingsState {
 export const useSettings = create<SettingsState>()(
   persist(
     (set) => ({
-      clanName: 'Warriors',
+      clanName: '',
       tableNames: [
         'GT1',
         'GT2',

@@ -44,7 +44,7 @@ export default function SettingsDialog({ open, onClose }: SettingsDialogProps) {
       
       const { data, error } = await supabase
         .from('user_settings')
-        .select('menu_settings')
+        .select('menu_settings, name_guild')
         .eq('idOwner', ownerId)
         .maybeSingle();
 
@@ -53,12 +53,20 @@ export default function SettingsDialog({ open, onClose }: SettingsDialogProps) {
         return;
       }
 
-      if (data?.menu_settings) {
+      if (data) {
+        // Atualiza o nome do clã
+        if (data.name_guild) {
+          setNewClanName(data.name_guild);
+          setClanName(data.name_guild);
+        }
+
         // Mescla as configurações salvas com as configurações padrão
-        setMenuVisibility(defaultMenuVisibility.map(defaultMenu => ({
-          ...defaultMenu,
-          visible: data.menu_settings[defaultMenu.id] ?? defaultMenu.visible
-        })));
+        if (data.menu_settings) {
+          setMenuVisibility(defaultMenuVisibility.map(defaultMenu => ({
+            ...defaultMenu,
+            visible: data.menu_settings[defaultMenu.id] ?? defaultMenu.visible
+          })));
+        }
       } else {
         // Se não houver configurações, usa as padrões
         setMenuVisibility(defaultMenuVisibility);
@@ -94,7 +102,10 @@ export default function SettingsDialog({ open, onClose }: SettingsDialogProps) {
         // Atualizar configurações existentes
         const { error: updateError } = await supabase
           .from('user_settings')
-          .update({ menu_settings: menuSettings })
+          .update({ 
+            menu_settings: menuSettings,
+            name_guild: newClanName 
+          })
           .eq('id', existingSettings.id);
 
         if (updateError) {
@@ -105,10 +116,11 @@ export default function SettingsDialog({ open, onClose }: SettingsDialogProps) {
         // Criar novas configurações
         const { error: insertError } = await supabase
           .from('user_settings')
-          .insert([{
-            idOwner: ownerId,
-            menu_settings: menuSettings
-          }]);
+          .insert({ 
+            idOwner: ownerId, 
+            menu_settings: menuSettings,
+            name_guild: newClanName 
+          });
 
         if (insertError) {
           console.error('Erro ao criar configurações:', insertError);

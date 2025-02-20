@@ -74,10 +74,37 @@ export default function Sidebar() {
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const [openMenus, setOpenMenus] = useState<string[]>([]);
   const [isAuthenticated, setIsAuthenticated] = useState<boolean | null>(null);
-  const { clanName } = useSettings();
+  const { clanName, setClanName } = useSettings();
   const { ownerId, loading: ownerLoading } = useOwnerContext();
   const [menuSettings, setMenuSettings] = useState<MenuSettings>(defaultMenuSettings);
   const [isLoadingSettings, setIsLoadingSettings] = useState(true);
+
+  useEffect(() => {
+    const loadSettings = async () => {
+      try {
+        if (!ownerId) return;
+
+        const { data, error } = await supabase
+          .from('user_settings')
+          .select('name_guild')
+          .eq('idOwner', ownerId)
+          .maybeSingle();
+
+        if (error) {
+          console.error('Erro ao carregar nome do clã:', error);
+          return;
+        }
+
+        if (data?.name_guild) {
+          setClanName(data.name_guild);
+        }
+      } catch (error) {
+        console.error('Erro ao carregar configurações:', error);
+      }
+    };
+
+    loadSettings();
+  }, [ownerId, setClanName]);
 
   useEffect(() => {
     const checkAuth = async () => {
