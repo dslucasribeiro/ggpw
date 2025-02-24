@@ -247,7 +247,9 @@ export default function TerritorialWar() {
               onUpdate={handleConfirmedPlayersUpdate}
             />
           )}
-          {pathname === '/war/strategy' && <WarStrategy />}
+          {pathname === '/war/strategy' && (
+            <WarStrategy selectedTW={selectedTW} />
+          )}
         </div>
       )}
 

@@ -1,6 +1,8 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
-import { Pencil, Square, Circle, Undo, Trash2, ArrowUp, Palette, Maximize2, Minimize2 } from 'lucide-react';
+import { Pencil, Square, Circle, Undo, Trash2, ArrowUp, Palette, Maximize2, Minimize2, Save } from 'lucide-react';
 import { strategyIcons } from '@/data/strategyIcons';
+import { supabase } from '@/lib/supabase';
+import { useOwnerContext } from '@/contexts/OwnerContext';
 
 interface Icon {
   type: string;
@@ -13,7 +15,17 @@ interface DrawState {
   icons: Icon[];
 }
 
-const WarStrategy = () => {
+interface TW {
+  id: number;
+  date: string;
+  idOwner: number;
+}
+
+interface Props {
+  selectedTW: TW;
+}
+
+const WarStrategy: React.FC<Props> = ({ selectedTW }) => {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const [isDrawing, setIsDrawing] = useState(false);
   const [context, setContext] = useState<CanvasRenderingContext2D | null>(null);
@@ -29,6 +41,10 @@ const WarStrategy = () => {
   const [startPoint, setStartPoint] = useState<{ x: number; y: number } | null>(null);
   const [isColorPickerOpen, setIsColorPickerOpen] = useState(false);
   const [isFullscreen, setIsFullscreen] = useState(false);
+  const [isSaving, setIsSaving] = useState(false);
+
+  // Get owner context
+  const { ownerId } = useOwnerContext();
 
   const colors = ['#000000', '#ff0000', '#00ff00', '#0000ff', '#ffff00', '#ff00ff', '#ffffff'];
 
@@ -58,7 +74,7 @@ const WarStrategy = () => {
         context.restore();
       }
     });
-  }, [context, placedIcons]); // Removido strategyIcons das dependências
+  }, [context, placedIcons]);
 
   const saveToHistory = useCallback(() => {
     if (!context || !canvasRef.current) return;
@@ -97,6 +113,49 @@ const WarStrategy = () => {
     }
   }, [context, canvasRef, drawHistory]);
 
+  const saveStrategy = useCallback(async () => {
+    if (!context || !canvasRef.current) return;
+    
+    try {
+      setIsSaving(true);
+      
+      if (!selectedTW) {
+        alert('Por favor, selecione uma TW antes de salvar a estratégia.');
+        return;
+      }
+
+      // Get canvas data as base64 string
+      const canvasData = canvasRef.current.toDataURL();
+      
+      const strategyData = {
+        tw_id: selectedTW.id,
+        idowner: ownerId,
+        canvas_data: canvasData,
+        icons: placedIcons
+      };
+
+      console.log('Saving strategy data:', strategyData);
+
+      const { data, error } = await supabase
+        .from('war_strategies')
+        .upsert(strategyData)
+        .select();
+
+      if (error) {
+        console.error('Supabase error details:', error);
+        throw error;
+      }
+      
+      console.log('Save successful:', data);
+      alert('Estratégia salva com sucesso!');
+    } catch (err) {
+      console.error('Erro detalhado ao salvar estratégia:', err);
+      alert('Erro ao salvar estratégia. Por favor, tente novamente.');
+    } finally {
+      setIsSaving(false);
+    }
+  }, [context, canvasRef, ownerId, placedIcons, selectedTW]);
+
   useEffect(() => {
     renderIcons();
   }, [placedIcons, renderIcons]);
@@ -120,6 +179,77 @@ const WarStrategy = () => {
       renderIcons(drawHistory[historyIndex].icons);
     }
   }, [context, historyIndex, drawHistory, renderIcons]);
+
+  useEffect(() => {
+    const loadStrategy = async () => {
+      if (!context || !canvasRef.current) return;
+
+      try {
+        setIsLoading(true);
+        const { data, error } = await supabase
+          .from('war_strategies')
+          .select('*')
+          .eq('tw_id', selectedTW.id)
+          .eq('idowner', ownerId)
+          .single();
+
+        if (error && error.code !== 'PGRST116') { // Ignora erro de não encontrado
+          throw error;
+        }
+
+        // Primeiro, carrega a imagem base
+        const baseImage = new Image();
+        baseImage.src = '/images/campo_batalha.jpg';
+        baseImage.onload = () => {
+          if (context && canvasRef.current) {
+            context.clearRect(0, 0, canvasRef.current.width, canvasRef.current.height);
+            context.drawImage(baseImage, 0, 0, canvasRef.current.width, canvasRef.current.height);
+
+            // Se tiver dados salvos, carrega por cima da imagem base
+            if (data) {
+              const strategyImage = new Image();
+              strategyImage.onload = () => {
+                if (context && canvasRef.current) {
+                  context.drawImage(strategyImage, 0, 0);
+                  setPlacedIcons(data.icons || []);
+                  const imageData = context.getImageData(0, 0, canvasRef.current.width, canvasRef.current.height);
+                  setDrawHistory([{ imageData, icons: data.icons || [] }]);
+                  setHistoryIndex(0);
+                }
+                setIsLoading(false);
+              };
+              strategyImage.src = data.canvas_data;
+            } else {
+              // Se não tiver dados salvos, mantém só a imagem base
+              const imageData = context.getImageData(0, 0, canvasRef.current.width, canvasRef.current.height);
+              setDrawHistory([{ imageData, icons: [] }]);
+              setHistoryIndex(0);
+              setPlacedIcons([]);
+              setIsLoading(false);
+            }
+          }
+        };
+      } catch (err) {
+        console.error('Erro ao carregar estratégia:', err);
+        setIsLoading(false);
+      }
+    };
+
+    loadStrategy();
+  }, [selectedTW.id, context, canvasRef, ownerId]);
+
+  useEffect(() => {
+    if (!canvasRef.current) return;
+
+    // Definir as dimensões do canvas
+    canvasRef.current.width = 1024;  // Largura fixa
+    canvasRef.current.height = 768;  // Altura fixa
+    
+    const ctx = canvasRef.current.getContext('2d');
+    if (!ctx) return;
+    
+    setContext(ctx);
+  }, []);
 
   const startDrawing = (e: React.MouseEvent<HTMLCanvasElement>) => {
     if (!context || !canvasRef.current || currentTool === 'icons') return;
@@ -219,81 +349,6 @@ const WarStrategy = () => {
     saveToHistory();
     setDraggedIcon(null);
   };
-
-  useEffect(() => {
-    const canvas = canvasRef.current;
-    if (!canvas) return;
-
-    const ctx = canvas.getContext('2d');
-    if (!ctx) {
-      setError('Erro ao obter contexto do canvas');
-      setIsLoading(false);
-      return;
-    }
-
-    setContext(ctx);
-    setIsLoading(true);
-    setError(null);
-
-    // Definir dimensões iniciais
-    canvas.width = 1024;
-    canvas.height = 768;
-
-    // Carregar a imagem de fundo
-    const image = new Image();
-    image.src = '/images/campo_batalha.jpg';
-    
-    image.onload = () => {
-      // Calcular as dimensões mantendo a proporção
-      const maxWidth = 1024;
-      const maxHeight = 768;
-      let newWidth = image.width;
-      let newHeight = image.height;
-      
-      if (newWidth > maxWidth) {
-        newHeight = (maxWidth * newHeight) / newWidth;
-        newWidth = maxWidth;
-      }
-      if (newHeight > maxHeight) {
-        newWidth = (maxHeight * newWidth) / newHeight;
-        newHeight = maxHeight;
-      }
-
-      canvas.width = newWidth;
-      canvas.height = newHeight;
-      
-      // Limpar o canvas com fundo branco
-      ctx.fillStyle = '#ffffff';
-      ctx.fillRect(0, 0, canvas.width, canvas.height);
-      
-      // Desenhar a imagem
-      ctx.drawImage(image, 0, 0, canvas.width, canvas.height);
-      
-      // Salvar o estado inicial
-      const initialState: DrawState = {
-        imageData: ctx.getImageData(0, 0, canvas.width, canvas.height),
-        icons: []
-      };
-      setDrawHistory([initialState]);
-      setHistoryIndex(0);
-      setIsLoading(false);
-    };
-
-    // Tratar erro de carregamento da imagem
-    image.onerror = () => {
-      setError('Erro ao carregar a imagem de fundo');
-      ctx.fillStyle = '#ffffff';
-      ctx.fillRect(0, 0, canvas.width, canvas.height);
-      
-      const initialState: DrawState = {
-        imageData: ctx.getImageData(0, 0, canvas.width, canvas.height),
-        icons: []
-      };
-      setDrawHistory([initialState]);
-      setHistoryIndex(0);
-      setIsLoading(false);
-    };
-  }, []);
 
   return (
     <div className="flex flex-col bg-gray-900">
@@ -407,6 +462,14 @@ const WarStrategy = () => {
               <Maximize2 className="w-5 h-5" />
             )}
           </button>
+          <button
+            onClick={saveStrategy}
+            disabled={isSaving}
+            className="flex items-center gap-2 px-3 py-2 bg-green-600 text-white rounded hover:bg-green-700 disabled:opacity-50"
+          >
+            <Save size={20} />
+            {isSaving ? 'Salvando...' : 'Salvar Estratégia'}
+          </button>
         </div>
       </div>
 
@@ -439,7 +502,8 @@ const WarStrategy = () => {
             onMouseLeave={stopDrawing}
             onDragOver={(e) => e.preventDefault()}
             onDrop={handleDrop}
-            className="cursor-crosshair border border-gray-700 rounded-lg"
+            className="cursor-crosshair border border-gray-700 rounded-lg w-[1024px] h-[768px]"
+            style={{ objectFit: 'contain' }}
           />
         </div>
       </div>
