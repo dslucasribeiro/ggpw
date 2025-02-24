@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
-import { Pencil, Square, Circle, Undo, Trash2, ArrowUp, Palette } from 'lucide-react';
+import { Pencil, Square, Circle, Undo, Trash2, ArrowUp, Palette, Maximize2, Minimize2 } from 'lucide-react';
 import { strategyIcons } from '@/data/strategyIcons';
 
 interface Icon {
@@ -28,6 +28,7 @@ const WarStrategy = () => {
   const [error, setError] = useState<string | null>(null);
   const [startPoint, setStartPoint] = useState<{ x: number; y: number } | null>(null);
   const [isColorPickerOpen, setIsColorPickerOpen] = useState(false);
+  const [isFullscreen, setIsFullscreen] = useState(false);
 
   const colors = ['#000000', '#ff0000', '#00ff00', '#0000ff', '#ffff00', '#ff00ff', '#ffffff'];
 
@@ -308,7 +309,7 @@ const WarStrategy = () => {
       )}
 
       {/* Barra de Ferramentas */}
-      <div className="flex gap-2 items-center mb-4">
+      <div className={`flex gap-2 items-center mb-4 ${isFullscreen ? 'bg-gray-900 p-4 fixed top-0 left-0 right-0 z-50' : ''}`}>
         <div className="flex gap-2 bg-gray-800 p-2 rounded-lg">
           <button
             onClick={() => setCurrentTool('pencil')}
@@ -395,26 +396,24 @@ const WarStrategy = () => {
           >
             <Trash2 className="w-5 h-5" />
           </button>
-        </div>
-
-        {/* Controle de Tamanho */}
-        <div className="flex items-center gap-2 bg-gray-800 p-2 rounded-lg">
-          <span className="text-white text-sm">Tamanho:</span>
-          <input
-            type="range"
-            min="1"
-            max="20"
-            value={brushSize}
-            onChange={(e) => setBrushSize(Number(e.target.value))}
-            className="w-24"
-          />
+          <button
+            onClick={() => setIsFullscreen(!isFullscreen)}
+            title={isFullscreen ? "Sair da tela cheia" : "Tela cheia"}
+            className="p-2 text-white hover:bg-gray-700 rounded-lg"
+          >
+            {isFullscreen ? (
+              <Minimize2 className="w-5 h-5" />
+            ) : (
+              <Maximize2 className="w-5 h-5" />
+            )}
+          </button>
         </div>
       </div>
 
       {/* Área do Canvas */}
-      <div className="flex gap-4 p-4 h-[calc(100vh-180px)]">
+      <div className={`flex gap-4 p-4 ${isFullscreen ? 'fixed inset-0 bg-gray-900 pt-20 z-40' : 'h-[calc(100vh-180px)]'}`}>
         {/* Barra lateral de ícones */}
-        <div className="flex flex-col gap-2 p-2 bg-gray-800 rounded-lg h-fit">
+        <div className={`flex flex-col gap-2 p-2 bg-gray-800 rounded-lg h-fit ${isFullscreen ? 'fixed left-4 top-24' : ''}`}>
           <div className="text-white text-sm font-medium mb-2">Ícones</div>
           {strategyIcons.map((item) => (
             <div
@@ -431,7 +430,7 @@ const WarStrategy = () => {
         </div>
 
         {/* Canvas Container */}
-        <div className="flex-1 overflow-auto">
+        <div className={`flex-1 overflow-auto ${isFullscreen ? 'ml-20' : ''}`}>
           <canvas
             ref={canvasRef}
             onMouseDown={startDrawing}

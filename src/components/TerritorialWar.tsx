@@ -156,13 +156,6 @@ export default function TerritorialWar() {
     <div className="p-6">
       <div className="flex justify-between items-center mb-6">
         <h1 className="text-2xl font-bold text-white">Territorial War</h1>
-        <button
-          onClick={() => setIsAddingTW(true)}
-          className="px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition-colors flex items-center gap-2"
-        >
-          <Plus className="w-4 h-4" />
-          Nova TW
-        </button>
       </div>
 
       {/* Lista de TWs */}
