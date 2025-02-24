@@ -33,6 +33,8 @@ export function Players() {
   const [selectedPosicao, setSelectedPosicao] = useState<string>('');
   const [selectedNivelRange, setSelectedNivelRange] = useState<string>('');
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
+  const [isEditModalOpen, setIsEditModalOpen] = useState(false);
+  const [editingPlayer, setEditingPlayer] = useState<Player | null>(null);
   const { ownerId, loading: ownerLoading } = useOwnerContext();
   const [newPlayer, setNewPlayer] = useState<Omit<Player, 'id' | 'created_at' | 'idOwner'>>({
     nick: '',
@@ -126,6 +128,34 @@ export function Players() {
       setPlayers(players.filter(p => p.id !== id));
     } catch (error) {
       console.error('Error deleting player:', error);
+    }
+  }
+
+  async function handleEditPlayer(e: React.FormEvent) {
+    e.preventDefault();
+    if (!editingPlayer) return;
+    
+    try {
+      const { data, error } = await supabase
+        .from('players')
+        .update({
+          nick: editingPlayer.nick,
+          nivel: editingPlayer.nivel,
+          classe: editingPlayer.classe,
+          posicao: editingPlayer.posicao,
+        })
+        .eq('id', editingPlayer.id)
+        .eq('idOwner', ownerId)
+        .select()
+        .single();
+
+      if (error) throw error;
+
+      setPlayers(players.map(p => p.id === editingPlayer.id ? data : p));
+      setIsEditModalOpen(false);
+      setEditingPlayer(null);
+    } catch (error) {
+      console.error('Error editing player:', error);
     }
   }
 
@@ -229,7 +259,13 @@ export function Players() {
             <div className="text-blue-400">{player.classe}</div>
             <div className="text-purple-400">{player.posicao}</div>
             <div className="flex items-center justify-end gap-2">
-              <button className="p-2 text-gray-400 hover:text-blue-400">
+              <button 
+                onClick={() => {
+                  setEditingPlayer(player);
+                  setIsEditModalOpen(true);
+                }}
+                className="p-2 text-gray-400 hover:text-blue-400"
+              >
                 <PencilIcon className="w-4 h-4" />
               </button>
               <button 
@@ -329,6 +365,97 @@ export function Players() {
                 className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 Adicionar
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Edit Player Modal */}
+      {isEditModalOpen && editingPlayer && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center">
+          <div className="bg-[#1A1F2E] rounded-lg p-6 w-full max-w-md">
+            <div className="flex justify-between items-center mb-4">
+              <h2 className="text-xl text-white font-medium">Editar Player</h2>
+              <button 
+                onClick={() => {
+                  setIsEditModalOpen(false);
+                  setEditingPlayer(null);
+                }}
+                className="text-gray-400 hover:text-white"
+              >
+                <XMarkIcon className="w-6 h-6" />
+              </button>
+            </div>
+            
+            <div className="space-y-4">
+              <div>
+                <label className="block text-gray-400 mb-1">Nick</label>
+                <input
+                  type="text"
+                  value={editingPlayer.nick}
+                  onChange={(e) => setEditingPlayer({ ...editingPlayer, nick: e.target.value })}
+                  className="w-full bg-[#0B1120] text-white px-4 py-2 rounded-lg"
+                />
+              </div>
+              
+              <div>
+                <label className="block text-gray-400 mb-1">Nível</label>
+                <input
+                  type="text"
+                  value={editingPlayer.nivel}
+                  onChange={(e) => {
+                    const value = e.target.value;
+                    const nivel = value === '' ? 0 : parseInt(value);
+                    setEditingPlayer({ ...editingPlayer, nivel });
+                  }}
+                  className="w-full bg-[#0B1120] text-white px-4 py-2 rounded-lg"
+                />
+              </div>
+              
+              <div>
+                <label className="block text-gray-400 mb-1">Classe</label>
+                <select
+                  value={editingPlayer.classe}
+                  onChange={(e) => setEditingPlayer({ ...editingPlayer, classe: e.target.value })}
+                  className="w-full bg-[#0B1120] text-white px-4 py-2 rounded-lg"
+                >
+                  {CLASSES.map((classe) => (
+                    <option key={classe} value={classe}>{classe}</option>
+                  ))}
+                </select>
+              </div>
+              
+              <div>
+                <label className="block text-gray-400 mb-1">Posição</label>
+                <select
+                  value={editingPlayer.posicao}
+                  onChange={(e) => setEditingPlayer({ ...editingPlayer, posicao: e.target.value })}
+                  className="w-full bg-[#0B1120] text-white px-4 py-2 rounded-lg"
+                >
+                  {POSICOES.map((posicao) => (
+                    <option key={posicao} value={posicao}>{posicao}</option>
+                  ))}
+                </select>
+              </div>
+            </div>
+
+            <div className="mt-6 flex justify-end gap-4">
+              <button
+                onClick={() => {
+                  setIsEditModalOpen(false);
+                  setEditingPlayer(null);
+                }}
+                className="px-4 py-2 text-gray-400 hover:text-white"
+              >
+                Cancelar
+              </button>
+              <button
+                onClick={handleEditPlayer}
+                disabled={!editingPlayer.nick}
+                className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                Salvar
               </button>
             </div>
           </div>
