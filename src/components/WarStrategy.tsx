@@ -134,19 +134,37 @@ const WarStrategy: React.FC<Props> = ({ selectedTW }) => {
         icons: placedIcons
       };
 
-      console.log('Saving strategy data:', strategyData);
-
-      const { data, error } = await supabase
+      // Primeiro verifica se já existe uma estratégia para esta TW
+      const { data: existingStrategy } = await supabase
         .from('war_strategies')
-        .upsert(strategyData)
-        .select();
+        .select('*')
+        .eq('tw_id', selectedTW.id)
+        .eq('idowner', ownerId)
+        .single();
 
-      if (error) {
-        console.error('Supabase error details:', error);
-        throw error;
+      let result;
+      if (existingStrategy) {
+        // Se existe, atualiza
+        result = await supabase
+          .from('war_strategies')
+          .update(strategyData)
+          .eq('tw_id', selectedTW.id)
+          .eq('idowner', ownerId)
+          .select();
+      } else {
+        // Se não existe, insere
+        result = await supabase
+          .from('war_strategies')
+          .insert(strategyData)
+          .select();
+      }
+
+      if (result.error) {
+        console.error('Supabase error details:', result.error);
+        throw result.error;
       }
       
-      console.log('Save successful:', data);
+      console.log('Save successful:', result.data);
       alert('Estratégia salva com sucesso!');
     } catch (err) {
       console.error('Erro detalhado ao salvar estratégia:', err);
