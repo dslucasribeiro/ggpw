@@ -412,9 +412,9 @@ const WarStrategy = () => {
       </div>
 
       {/* Área do Canvas */}
-      <div className="flex gap-4 p-4">
+      <div className="flex gap-4 p-4 h-[calc(100vh-180px)]">
         {/* Barra lateral de ícones */}
-        <div className="sticky top-24 flex flex-col gap-2 p-2 bg-gray-800 rounded-lg h-fit">
+        <div className="flex flex-col gap-2 p-2 bg-gray-800 rounded-lg h-fit">
           <div className="text-white text-sm font-medium mb-2">Ícones</div>
           {strategyIcons.map((item) => (
             <div
@@ -430,8 +430,8 @@ const WarStrategy = () => {
           ))}
         </div>
 
-        {/* Canvas */}
-        <div className="flex-1">
+        {/* Canvas Container */}
+        <div className="flex-1 overflow-auto">
           <canvas
             ref={canvasRef}
             onMouseDown={startDrawing}
