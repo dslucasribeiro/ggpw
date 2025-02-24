@@ -368,7 +368,7 @@ export default function Sidebar() {
             )}
           >
             <Settings className="h-5 w-5" />
-            {!isCollapsed && <span>Settings</span>}
+            {!isCollapsed && <span>Configurações</span>}
           </button>
           <button
             onClick={handleLogout}
