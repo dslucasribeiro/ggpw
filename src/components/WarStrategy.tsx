@@ -98,20 +98,46 @@ const WarStrategy: React.FC<Props> = ({ selectedTW }) => {
     setHistoryIndex(prev => prev - 1);
   }, [context, drawHistory, historyIndex]);
 
-  const clearCanvas = useCallback(() => {
+  const clearCanvas = useCallback(async () => {
     if (!context || !canvasRef.current) return;
 
-    // Limpa o estado dos ícones
-    setPlacedIcons([]);
+    try {
+      // Primeiro deleta a estratégia do banco de dados
+      const { error } = await supabase
+        .from('war_strategies')
+        .delete()
+        .eq('tw_id', selectedTW.id)
+        .eq('idowner', ownerId);
 
-    // Restaura o estado inicial do histórico
-    if (drawHistory.length > 0) {
-      const initialState = drawHistory[0];
-      context.putImageData(initialState.imageData, 0, 0);
-      setHistoryIndex(0);
-      setDrawHistory([initialState]);
+      if (error) {
+        console.error('Erro ao deletar estratégia:', error);
+        alert('Erro ao limpar estratégia. Por favor, tente novamente.');
+        return;
+      }
+
+      // Limpa o estado dos ícones
+      setPlacedIcons([]);
+
+      // Carrega a imagem base novamente
+      const baseImage = new Image();
+      baseImage.src = '/images/campo_batalha.jpg';
+      baseImage.onload = () => {
+        if (context && canvasRef.current) {
+          context.clearRect(0, 0, canvasRef.current.width, canvasRef.current.height);
+          context.drawImage(baseImage, 0, 0, canvasRef.current.width, canvasRef.current.height);
+          
+          // Salva o novo estado no histórico
+          const imageData = context.getImageData(0, 0, canvasRef.current.width, canvasRef.current.height);
+          const newState = { imageData, icons: [] };
+          setDrawHistory([newState]);
+          setHistoryIndex(0);
+        }
+      };
+    } catch (err) {
+      console.error('Erro ao limpar canvas:', err);
+      alert('Erro ao limpar estratégia. Por favor, tente novamente.');
     }
-  }, [context, canvasRef, drawHistory]);
+  }, [context, canvasRef, selectedTW.id, ownerId]);
 
   const saveStrategy = useCallback(async () => {
     if (!context || !canvasRef.current) return;
