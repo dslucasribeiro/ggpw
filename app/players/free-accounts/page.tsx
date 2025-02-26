@@ -16,10 +16,6 @@ export default function FreeAccountsPage() {
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [selectedAccount, setSelectedAccount] = useState<FreeAccount | undefined>();
 
-  useEffect(() => {
-    fetchAccounts();
-  }, [ownerId]);
-
   const fetchAccounts = async () => {
     if (!ownerId) return;
 
@@ -38,6 +34,10 @@ export default function FreeAccountsPage() {
     setIsLoading(false);
   };
 
+  useEffect(() => {
+    fetchAccounts();
+  }, [ownerId]);
+
   const handleEdit = (account: FreeAccount) => {
     setSelectedAccount(account);
     setIsDialogOpen(true);
@@ -51,6 +51,7 @@ export default function FreeAccountsPage() {
   const handleCloseDialog = () => {
     setIsDialogOpen(false);
     setSelectedAccount(undefined);
+    fetchAccounts();
   };
 
   if (isLoading) {

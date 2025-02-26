@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { FreeAccount, CreateFreeAccount } from '@/types/free-accounts';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -13,6 +13,7 @@ import {
 } from '@/components/ui/select';
 import { useOwnerContext } from '@/contexts/OwnerContext';
 import { supabase } from '@/lib/supabase';
+import { Image as ImageIcon } from 'lucide-react';
 
 interface FreeAccountFormProps {
   account?: FreeAccount;
@@ -25,32 +26,96 @@ const RANKS = ['1', '2', '3', '4', '5'];
 export function FreeAccountForm({ account, onClose }: FreeAccountFormProps) {
   const { ownerId } = useOwnerContext();
   const [formData, setFormData] = useState<CreateFreeAccount>({
-    idOwner: ownerId,
-    login: '',
-    password: '',
-    class: '',
-    level: 0,
-    rank: '',
-    password_bank: '',
-    is_available: true
+    idOwner: ownerId || null,
+    login: account?.login || '',
+    password: account?.password || '',
+    class: account?.class || '',
+    level: account?.level || 0,
+    rank: account?.rank || '',
+    password_bank: account?.password_bank || '',
+    is_available: account?.is_available ?? true,
+    image_url: account?.image_url || null
   });
   const [newClass, setNewClass] = useState('');
   const [classes, setClasses] = useState(DEFAULT_CLASSES);
   const [showNewClassInput, setShowNewClassInput] = useState(false);
+  const [selectedImage, setSelectedImage] = useState<File | null>(null);
+  const [uploading, setUploading] = useState(false);
 
-  useEffect(() => {
-    if (account) {
-      setFormData(account);
+  const handleImageSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (e.target.files && e.target.files[0]) {
+      setSelectedImage(e.target.files[0]);
     }
-  }, [account]);
+  };
+
+  const uploadImage = async () => {
+    if (!selectedImage) return null;
+
+    const fileExt = selectedImage.name.split('.').pop();
+    const fileName = `${Math.random().toString(36).substring(2)}${Date.now()}.${fileExt}`;
+    const filePath = `${fileName}`;
+
+    try {
+      setUploading(true);
+
+      const { error: uploadError } = await supabase.storage
+        .from('print_account')
+        .upload(filePath, selectedImage);
+
+      if (uploadError) {
+        throw uploadError;
+      }
+
+      const { data: { publicUrl } } = supabase.storage
+        .from('print_account')
+        .getPublicUrl(filePath);
+
+      return publicUrl;
+    } catch (error) {
+      console.error('Erro ao fazer upload da imagem:', error);
+      return null;
+    } finally {
+      setUploading(false);
+    }
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    
+    let imageUrl = formData.image_url;
+    
+    if (selectedImage) {
+      imageUrl = await uploadImage();
+      if (!imageUrl) {
+        console.error('Falha ao fazer upload da imagem');
+        return;
+      }
+    }
 
     if (account?.id) {
+      // Se estiver editando, envia apenas os campos que foram alterados
+      const changedFields: Record<string, any> = {};
+      
+      Object.keys(formData).forEach((key) => {
+        const k = key as keyof typeof formData;
+        if (formData[k] !== account[k]) {
+          changedFields[key] = formData[k];
+        }
+      });
+
+      if (imageUrl !== account.image_url) {
+        changedFields.image_url = imageUrl;
+      }
+
+      // Se não houver alterações, não faz nada
+      if (Object.keys(changedFields).length === 0) {
+        onClose();
+        return;
+      }
+
       const { error } = await supabase
         .from('free_accounts')
-        .update(formData)
+        .update(changedFields)
         .eq('id', account.id)
         .eq('idOwner', ownerId);
 
@@ -59,9 +124,14 @@ export function FreeAccountForm({ account, onClose }: FreeAccountFormProps) {
         return;
       }
     } else {
+      const dataToSend = {
+        ...formData,
+        image_url: imageUrl
+      };
+
       const { error } = await supabase
         .from('free_accounts')
-        .insert([formData]);
+        .insert([dataToSend]);
 
       if (error) {
         console.error('Erro ao criar conta:', error);
@@ -70,7 +140,6 @@ export function FreeAccountForm({ account, onClose }: FreeAccountFormProps) {
     }
 
     onClose();
-    window.location.reload();
   };
 
   const handleAddNewClass = () => {
@@ -91,7 +160,7 @@ export function FreeAccountForm({ account, onClose }: FreeAccountFormProps) {
             id="login"
             value={formData.login}
             onChange={(e) => setFormData({ ...formData, login: e.target.value })}
-            required
+            required={!account}
             className="bg-[#1A2332] border-[#2A3441] text-white"
           />
         </div>
@@ -102,7 +171,7 @@ export function FreeAccountForm({ account, onClose }: FreeAccountFormProps) {
             id="password"
             value={formData.password}
             onChange={(e) => setFormData({ ...formData, password: e.target.value })}
-            required
+            required={!account}
             className="bg-[#1A2332] border-[#2A3441] text-white"
           />
         </div>
@@ -165,7 +234,7 @@ export function FreeAccountForm({ account, onClose }: FreeAccountFormProps) {
               const value = e.target.value.replace(/[^0-9]/g, '');
               setFormData({ ...formData, level: parseInt(value) || 0 });
             }}
-            required
+            required={!account}
             className="bg-[#1A2332] border-[#2A3441] text-white"
           />
         </div>
@@ -198,6 +267,30 @@ export function FreeAccountForm({ account, onClose }: FreeAccountFormProps) {
             className="bg-[#1A2332] border-[#2A3441] text-white"
           />
         </div>
+
+        <div className="space-y-2">
+          <label htmlFor="image" className="text-sm font-medium">Print da Conta</label>
+          <div className="flex gap-2 items-center">
+            <Input
+              id="image"
+              type="file"
+              accept="image/*"
+              onChange={handleImageSelect}
+              className="hidden"
+            />
+            <Button
+              type="button"
+              onClick={() => document.getElementById('image')?.click()}
+              className="bg-[#1A2332] border-[#2A3441] text-white hover:bg-[#2A3441] w-full h-9 flex items-center gap-2"
+            >
+              <ImageIcon className="w-4 h-4" />
+              {selectedImage ? selectedImage.name : 'Selecionar imagem'}
+            </Button>
+          </div>
+          {formData.image_url && !selectedImage && (
+            <p className="text-xs text-gray-400">Imagem atual: {formData.image_url.split('/').pop()}</p>
+          )}
+        </div>
       </div>
 
       <div className="flex justify-end gap-2 pt-4">
@@ -206,14 +299,16 @@ export function FreeAccountForm({ account, onClose }: FreeAccountFormProps) {
           variant="outline" 
           onClick={onClose}
           className="border-[#2A3441] text-white hover:bg-[#2A3441]"
+          disabled={uploading}
         >
           Cancelar
         </Button>
         <Button 
           type="submit"
           className="bg-blue-600 hover:bg-blue-700"
+          disabled={uploading}
         >
-          {account ? 'Atualizar' : 'Criar'}
+          {uploading ? 'Enviando...' : account ? 'Atualizar' : 'Criar'}
         </Button>
       </div>
     </form>

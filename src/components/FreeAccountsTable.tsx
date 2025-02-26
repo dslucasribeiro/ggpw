@@ -2,7 +2,6 @@
 
 import { useState } from 'react';
 import { FreeAccount } from '@/types/free-accounts';
-import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import {
   Table,
@@ -12,7 +11,8 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table';
-import { Pencil, Trash2 } from 'lucide-react';
+import { Pencil, Trash2, Image as ImageIcon } from 'lucide-react';
+import { Button } from '@/components/ui/button';
 import { useOwnerContext } from '@/contexts/OwnerContext';
 import { supabase } from '@/lib/supabase';
 
@@ -21,9 +21,11 @@ interface FreeAccountsTableProps {
   onEdit: (account: FreeAccount) => void;
 }
 
-export function FreeAccountsTable({ accounts, onEdit }: FreeAccountsTableProps) {
+export function FreeAccountsTable({ accounts: initialAccounts, onEdit }: FreeAccountsTableProps) {
   const { ownerId } = useOwnerContext();
   const [searchTerm, setSearchTerm] = useState('');
+  const [previewImage, setPreviewImage] = useState<string | null>(null);
+  const [accounts, setAccounts] = useState(initialAccounts);
 
   const filteredAccounts = accounts.filter(account => 
     account.login.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -49,18 +51,24 @@ export function FreeAccountsTable({ accounts, onEdit }: FreeAccountsTableProps) 
   };
 
   const toggleAvailability = async (account: FreeAccount) => {
-    const { error } = await supabase
+    // Atualiza no banco
+    await supabase
       .from('free_accounts')
-      .update({ is_available: !account.is_available })
+      .update({
+        is_available: !account.is_available
+      })
       .eq('id', account.id)
       .eq('idOwner', ownerId);
 
-    if (error) {
-      console.error('Erro ao atualizar disponibilidade:', error);
-      return;
-    }
-
-    window.location.reload();
+    // Atualiza o estado local
+    setAccounts(currentAccounts => 
+      currentAccounts.map(acc => {
+        if (acc.id === account.id) {
+          return { ...acc, is_available: !acc.is_available };
+        }
+        return acc;
+      })
+    );
   };
 
   return (
@@ -71,6 +79,15 @@ export function FreeAccountsTable({ accounts, onEdit }: FreeAccountsTableProps) 
         onChange={(e) => setSearchTerm(e.target.value)}
         className="max-w-sm bg-[#1A2332] border-[#2A3441] text-white"
       />
+
+      {previewImage && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50" onClick={() => setPreviewImage(null)}>
+          <div className="relative max-w-4xl max-h-[90vh]">
+            <img src={previewImage} alt="Preview" className="max-w-full max-h-[90vh] object-contain" />
+          </div>
+        </div>
+      )}
+
       <div className="rounded-lg border border-[#2A3441] bg-[#0B1120]">
         <Table>
           <TableHeader>
@@ -81,6 +98,7 @@ export function FreeAccountsTable({ accounts, onEdit }: FreeAccountsTableProps) 
               <TableHead className="text-white">Nível</TableHead>
               <TableHead className="text-white">Rank</TableHead>
               <TableHead className="text-white">Senha do Banco</TableHead>
+              <TableHead className="text-white">Print Itens</TableHead>
               <TableHead className="text-white">Status</TableHead>
               <TableHead className="text-white">Ações</TableHead>
             </TableRow>
@@ -97,6 +115,20 @@ export function FreeAccountsTable({ accounts, onEdit }: FreeAccountsTableProps) 
                 <TableCell className="text-white">{account.rank}</TableCell>
                 <TableCell className="text-white">
                   {account.is_available ? account.password_bank : '••••••••'}
+                </TableCell>
+                <TableCell>
+                  {account.image_url ? (
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      onClick={() => setPreviewImage(account.image_url)}
+                      className="hover:bg-[#2A3441] text-blue-500 hover:text-blue-400"
+                    >
+                      <ImageIcon className="h-4 w-4" />
+                    </Button>
+                  ) : (
+                    <span className="text-gray-500">-</span>
+                  )}
                 </TableCell>
                 <TableCell>
                   <Button
