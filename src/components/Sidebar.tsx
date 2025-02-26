@@ -12,7 +12,16 @@ import { useRouter } from 'next/navigation';
 import { useOwnerContext } from '@/contexts/OwnerContext';
 
 const menuItems = [
-  { id: 'players', name: 'Players', href: '/players', icon: Users },
+  { 
+    id: 'players', 
+    name: 'Players', 
+    href: '/players', 
+    icon: Users,
+    subItems: [
+      { name: 'Lista de Players', href: '/players' },
+      { name: 'Contas 0800', href: '/players/free-accounts' }
+    ]
+  },
   { 
     id: 'guerra',
     name: 'Guerra', 
@@ -71,13 +80,30 @@ export default function Sidebar() {
   const pathname = usePathname() || '';
   const router = useRouter();
   const [isCollapsed, setIsCollapsed] = useState(false);
+  const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const [openMenus, setOpenMenus] = useState<string[]>([]);
-  const [isAuthenticated, setIsAuthenticated] = useState<boolean | null>(null);
   const { clanName, setClanName } = useSettings();
   const { ownerId, loading: ownerLoading } = useOwnerContext();
   const [menuSettings, setMenuSettings] = useState<MenuSettings>(defaultMenuSettings);
   const [isLoadingSettings, setIsLoadingSettings] = useState(true);
+
+  useEffect(() => {
+    const checkAuth = async () => {
+      const { data: { session } } = await supabase.auth.getSession();
+      setIsAuthenticated(!!session);
+    };
+
+    checkAuth();
+
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
+      setIsAuthenticated(!!session);
+    });
+
+    return () => {
+      subscription.unsubscribe();
+    };
+  }, []);
 
   useEffect(() => {
     const loadSettings = async () => {
@@ -107,25 +133,19 @@ export default function Sidebar() {
   }, [ownerId, setClanName]);
 
   useEffect(() => {
-    const checkAuth = async () => {
-      const { data: { session } } = await supabase.auth.getSession();
-      setIsAuthenticated(!!session);
-    };
-    
-    checkAuth();
-
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
-      setIsAuthenticated(!!session);
-    });
-
-    return () => subscription.unsubscribe();
-  }, []);
-
-  useEffect(() => {
     if (isAuthenticated && !ownerLoading && ownerId) {
       loadMenuSettings();
     }
   }, [isAuthenticated, ownerLoading, ownerId]);
+
+  useEffect(() => {
+    // Adiciona evento para limpar autenticação quando fechar o navegador
+    if (typeof window !== 'undefined') {
+      window.addEventListener('beforeunload', () => {
+        supabase.auth.signOut();
+      });
+    }
+  }, []);
 
   const loadMenuSettings = async () => {
     try {
@@ -239,10 +259,6 @@ export default function Sidebar() {
     setIsSettingsOpen(false);
     loadMenuSettings();
   };
-
-  if (isAuthenticated === null) {
-    return null;
-  }
 
   if (!isAuthenticated) {
     return null;
