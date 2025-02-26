@@ -89,11 +89,15 @@ export function FreeAccountsTable({ accounts, onEdit }: FreeAccountsTableProps) 
             {filteredAccounts.map((account) => (
               <TableRow key={account.id} className="border-[#2A3441] hover:bg-[#1A2332]">
                 <TableCell className="text-white">{account.login}</TableCell>
-                <TableCell className="text-white">{account.password}</TableCell>
+                <TableCell className="text-white">
+                  {account.is_available ? account.password : '••••••••'}
+                </TableCell>
                 <TableCell className="text-white">{account.class}</TableCell>
                 <TableCell className="text-white">{account.level}</TableCell>
                 <TableCell className="text-white">{account.rank}</TableCell>
-                <TableCell className="text-white">{account.password_bank}</TableCell>
+                <TableCell className="text-white">
+                  {account.is_available ? account.password_bank : '••••••••'}
+                </TableCell>
                 <TableCell>
                   <Button
                     variant="ghost"
