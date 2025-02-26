@@ -28,7 +28,7 @@ export function FreeAccountsTable({ accounts, onEdit }: FreeAccountsTableProps) 
   const filteredAccounts = accounts.filter(account => 
     account.login.toLowerCase().includes(searchTerm.toLowerCase()) ||
     account.class.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    account.rank?.toLowerCase().includes(searchTerm.toLowerCase())
+    (account.rank?.toLowerCase() || '').includes(searchTerm.toLowerCase())
   );
 
   const handleDelete = async (id: number) => {
@@ -69,38 +69,38 @@ export function FreeAccountsTable({ accounts, onEdit }: FreeAccountsTableProps) 
         placeholder="Buscar por login, classe ou rank..."
         value={searchTerm}
         onChange={(e) => setSearchTerm(e.target.value)}
-        className="max-w-sm"
+        className="max-w-sm bg-[#1A2332] border-[#2A3441] text-white"
       />
-      <div className="rounded-md border">
+      <div className="rounded-lg border border-[#2A3441] bg-[#0B1120]">
         <Table>
           <TableHeader>
-            <TableRow>
-              <TableHead>Login</TableHead>
-              <TableHead>Senha</TableHead>
-              <TableHead>Classe</TableHead>
-              <TableHead>Nível</TableHead>
-              <TableHead>Rank</TableHead>
-              <TableHead>Senha do Banco</TableHead>
-              <TableHead>Status</TableHead>
-              <TableHead>Ações</TableHead>
+            <TableRow className="border-[#2A3441] hover:bg-[#1A2332]">
+              <TableHead className="text-white">Login</TableHead>
+              <TableHead className="text-white">Senha</TableHead>
+              <TableHead className="text-white">Classe</TableHead>
+              <TableHead className="text-white">Nível</TableHead>
+              <TableHead className="text-white">Rank</TableHead>
+              <TableHead className="text-white">Senha do Banco</TableHead>
+              <TableHead className="text-white">Status</TableHead>
+              <TableHead className="text-white">Ações</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
             {filteredAccounts.map((account) => (
-              <TableRow key={account.id}>
-                <TableCell>{account.login}</TableCell>
-                <TableCell>{account.password}</TableCell>
-                <TableCell>{account.class}</TableCell>
-                <TableCell>{account.level}</TableCell>
-                <TableCell>{account.rank}</TableCell>
-                <TableCell>{account.password_bank}</TableCell>
+              <TableRow key={account.id} className="border-[#2A3441] hover:bg-[#1A2332]">
+                <TableCell className="text-white">{account.login}</TableCell>
+                <TableCell className="text-white">{account.password}</TableCell>
+                <TableCell className="text-white">{account.class}</TableCell>
+                <TableCell className="text-white">{account.level}</TableCell>
+                <TableCell className="text-white">{account.rank}</TableCell>
+                <TableCell className="text-white">{account.password_bank}</TableCell>
                 <TableCell>
                   <Button
                     variant="ghost"
                     className={`w-28 ${
                       account.is_available
-                        ? 'bg-green-500 hover:bg-green-600'
-                        : 'bg-red-500 hover:bg-red-600'
+                        ? 'bg-green-600 hover:bg-green-700'
+                        : 'bg-red-600 hover:bg-red-700'
                     } text-white`}
                     onClick={() => toggleAvailability(account)}
                   >
@@ -113,6 +113,7 @@ export function FreeAccountsTable({ accounts, onEdit }: FreeAccountsTableProps) 
                       variant="ghost"
                       size="icon"
                       onClick={() => onEdit(account)}
+                      className="hover:bg-[#2A3441] text-blue-500 hover:text-blue-400"
                     >
                       <Pencil className="h-4 w-4" />
                     </Button>
@@ -120,6 +121,7 @@ export function FreeAccountsTable({ accounts, onEdit }: FreeAccountsTableProps) 
                       variant="ghost"
                       size="icon"
                       onClick={() => handleDelete(account.id)}
+                      className="hover:bg-[#2A3441] text-red-500 hover:text-red-400"
                     >
                       <Trash2 className="h-4 w-4" />
                     </Button>

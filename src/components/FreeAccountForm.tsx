@@ -19,8 +19,8 @@ interface FreeAccountFormProps {
   onClose: () => void;
 }
 
-const CLASSES = ['WR', 'MG', 'EA', 'WB', 'EP', 'VT', 'SE', 'MY', 'BR'];
-const RANKS = ['Soldado', 'Cabo', 'Sargento', 'Subtenente', 'Tenente', 'Capitão', 'Major', 'Coronel', 'Marechal'];
+const DEFAULT_CLASSES = ['WR', 'MG', 'EA', 'EP', 'WB', 'WF'];
+const RANKS = ['1', '2', '3', '4', '5'];
 
 export function FreeAccountForm({ account, onClose }: FreeAccountFormProps) {
   const { ownerId } = useOwnerContext();
@@ -34,6 +34,9 @@ export function FreeAccountForm({ account, onClose }: FreeAccountFormProps) {
     password_bank: '',
     is_available: true
   });
+  const [newClass, setNewClass] = useState('');
+  const [classes, setClasses] = useState(DEFAULT_CLASSES);
+  const [showNewClassInput, setShowNewClassInput] = useState(false);
 
   useEffect(() => {
     if (account) {
@@ -70,71 +73,115 @@ export function FreeAccountForm({ account, onClose }: FreeAccountFormProps) {
     window.location.reload();
   };
 
+  const handleAddNewClass = () => {
+    if (newClass && !classes.includes(newClass)) {
+      setClasses([...classes, newClass]);
+      setFormData({ ...formData, class: newClass });
+      setNewClass('');
+      setShowNewClassInput(false);
+    }
+  };
+
   return (
-    <form onSubmit={handleSubmit} className="space-y-4">
-      <div className="grid grid-cols-2 gap-4">
+    <form onSubmit={handleSubmit} className="space-y-6 bg-[#0B1120] p-6 rounded-lg text-white">
+      <div className="grid grid-cols-2 gap-6">
         <div className="space-y-2">
-          <label htmlFor="login">Login</label>
+          <label htmlFor="login" className="text-sm font-medium">Login</label>
           <Input
             id="login"
             value={formData.login}
             onChange={(e) => setFormData({ ...formData, login: e.target.value })}
             required
+            className="bg-[#1A2332] border-[#2A3441] text-white"
           />
         </div>
 
         <div className="space-y-2">
-          <label htmlFor="password">Senha</label>
+          <label htmlFor="password" className="text-sm font-medium">Senha</label>
           <Input
             id="password"
             value={formData.password}
             onChange={(e) => setFormData({ ...formData, password: e.target.value })}
             required
+            className="bg-[#1A2332] border-[#2A3441] text-white"
           />
         </div>
 
         <div className="space-y-2">
-          <label htmlFor="class">Classe</label>
-          <Select
-            value={formData.class}
-            onValueChange={(value) => setFormData({ ...formData, class: value })}
-          >
-            <SelectTrigger>
-              <SelectValue placeholder="Selecione a classe" />
-            </SelectTrigger>
-            <SelectContent>
-              {CLASSES.map((cls) => (
-                <SelectItem key={cls} value={cls}>
-                  {cls}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
+          <label className="text-sm font-medium">Classe</label>
+          {showNewClassInput ? (
+            <div className="flex gap-2">
+              <Input
+                value={newClass}
+                onChange={(e) => setNewClass(e.target.value.toUpperCase())}
+                className="bg-[#1A2332] border-[#2A3441] text-white"
+                placeholder="Nova classe..."
+              />
+              <Button 
+                type="button" 
+                onClick={handleAddNewClass}
+                className="bg-blue-600 hover:bg-blue-700"
+              >
+                Adicionar
+              </Button>
+            </div>
+          ) : (
+            <div className="flex gap-2">
+              <Select
+                value={formData.class}
+                onValueChange={(value) => setFormData({ ...formData, class: value })}
+              >
+                <SelectTrigger className="bg-[#1A2332] border-[#2A3441] text-white w-44 h-6">
+                  <SelectValue placeholder="" />
+                </SelectTrigger>
+                <SelectContent className="bg-[#1A2332] border-[#2A3441] text-white">
+                  {classes.map((cls) => (
+                    <SelectItem key={cls} value={cls} className="text-white hover:bg-[#2A3441]">
+                      {cls}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <Button 
+                type="button" 
+                onClick={() => setShowNewClassInput(true)}
+                className="bg-green-600 hover:bg-green-700 w-10 h-6"
+              >
+                Nova
+              </Button>
+            </div>
+          )}
         </div>
 
         <div className="space-y-2">
-          <label htmlFor="level">Nível</label>
+          <label htmlFor="level" className="text-sm font-medium">Nível</label>
           <Input
             id="level"
-            type="number"
+            type="text"
+            inputMode="numeric"
+            pattern="[0-9]*"
             value={formData.level}
-            onChange={(e) => setFormData({ ...formData, level: parseInt(e.target.value) })}
+            onChange={(e) => {
+              const value = e.target.value.replace(/[^0-9]/g, '');
+              setFormData({ ...formData, level: parseInt(value) || 0 });
+            }}
             required
+            className="bg-[#1A2332] border-[#2A3441] text-white"
           />
         </div>
 
         <div className="space-y-2">
-          <label htmlFor="rank">Rank</label>
+          <label htmlFor="rank" className="text-sm font-medium">Rank</label>
           <Select
             value={formData.rank || ''}
             onValueChange={(value) => setFormData({ ...formData, rank: value })}
           >
-            <SelectTrigger>
-              <SelectValue placeholder="Selecione o rank" />
+            <SelectTrigger className="bg-[#1A2332] border-[#2A3441] text-white w-44 h-6">
+              <SelectValue placeholder="Rank do personagem" />
             </SelectTrigger>
-            <SelectContent>
+            <SelectContent className="bg-[#1A2332] border-[#2A3441] text-white">
               {RANKS.map((rank) => (
-                <SelectItem key={rank} value={rank}>
+                <SelectItem key={rank} value={rank} className="text-white hover:bg-[#2A3441]">
                   {rank}
                 </SelectItem>
               ))}
@@ -143,20 +190,29 @@ export function FreeAccountForm({ account, onClose }: FreeAccountFormProps) {
         </div>
 
         <div className="space-y-2">
-          <label htmlFor="password_bank">Senha do Banco</label>
+          <label htmlFor="password_bank" className="text-sm font-medium">Senha do Banco</label>
           <Input
             id="password_bank"
             value={formData.password_bank || ''}
             onChange={(e) => setFormData({ ...formData, password_bank: e.target.value })}
+            className="bg-[#1A2332] border-[#2A3441] text-white"
           />
         </div>
       </div>
 
-      <div className="flex justify-end gap-2">
-        <Button type="button" variant="outline" onClick={onClose}>
+      <div className="flex justify-end gap-2 pt-4">
+        <Button 
+          type="button" 
+          variant="outline" 
+          onClick={onClose}
+          className="border-[#2A3441] text-white hover:bg-[#2A3441]"
+        >
           Cancelar
         </Button>
-        <Button type="submit">
+        <Button 
+          type="submit"
+          className="bg-blue-600 hover:bg-blue-700"
+        >
           {account ? 'Atualizar' : 'Criar'}
         </Button>
       </div>
