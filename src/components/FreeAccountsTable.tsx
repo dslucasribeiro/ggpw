@@ -59,57 +59,114 @@ export function FreeAccountsTable({ accounts: initialAccounts, onEdit }: FreeAcc
     (account.rank?.toLowerCase() || '').includes(searchTerm.toLowerCase())
   );
 
+  const handleStatusChange = async (account: FreeAccount) => {
+    try {
+      const { error } = await supabase
+        .from('free_accounts')
+        .update({ is_available: !account.is_available })
+        .eq('id', account.id);
+
+      if (error) throw error;
+
+      setAccounts(accounts.map(acc => 
+        acc.id === account.id 
+          ? { ...acc, is_available: !acc.is_available }
+          : acc
+      ));
+    } catch (error) {
+      console.error('Erro ao atualizar status:', error);
+    }
+  };
+
+  const handleDelete = async (accountId: number) => {
+    if (!confirm('Tem certeza que deseja excluir esta conta?')) return;
+    
+    try {
+      const { error } = await supabase
+        .from('free_accounts')
+        .delete()
+        .eq('id', accountId);
+
+      if (error) throw error;
+
+      setAccounts(accounts.filter(acc => acc.id !== accountId));
+    } catch (error) {
+      console.error('Erro ao excluir conta:', error);
+    }
+  };
+
   return (
     <div className="space-y-4">
-      <Input
-        placeholder="Buscar por login, classe ou rank..."
-        value={searchTerm}
-        onChange={(e) => setSearchTerm(e.target.value)}
-        className="max-w-sm"
-      />
+      <div className="flex items-center space-x-4 mb-6">
+        <Input
+          placeholder="Buscar por login, classe ou rank..."
+          value={searchTerm}
+          onChange={(e) => setSearchTerm(e.target.value)}
+          className="max-w-sm bg-transparent border-slate-800 text-slate-200 placeholder:text-slate-500"
+        />
+      </div>
 
-      <Table>
-        <TableHeader>
-          <TableRow>
-            <TableHead>Login</TableHead>
-            <TableHead>Senha</TableHead>
-            <TableHead>Classe</TableHead>
-            <TableHead>Nível</TableHead>
-            <TableHead>Rank</TableHead>
-            <TableHead>Senha do Banco</TableHead>
-            <TableHead>Status</TableHead>
-            <TableHead>Ações</TableHead>
-          </TableRow>
-        </TableHeader>
-        <TableBody>
-          {filteredAccounts.map((account) => (
-            <TableRow key={account.id}>
-              <TableCell>{account.login}</TableCell>
-              <TableCell>{account.is_available ? account.password : '••••••••'}</TableCell>
-              <TableCell>{account.class}</TableCell>
-              <TableCell>{account.level}</TableCell>
-              <TableCell>{account.rank}</TableCell>
-              <TableCell>{account.is_available ? account.password_bank : '••••••••'}</TableCell>
-              <TableCell>
-                <span className={account.is_available ? 'text-green-500' : 'text-red-500'}>
-                  {account.is_available ? 'Disponível' : 'Indisponível'}
-                </span>
-              </TableCell>
-              <TableCell>
-                <div className="flex items-center gap-2">
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    onClick={() => onEdit(account)}
-                  >
-                    <Pencil className="h-4 w-4" />
-                  </Button>
-                </div>
-              </TableCell>
+      <div>
+        <Table>
+          <TableHeader>
+            <TableRow className="border-slate-800 hover:bg-slate-900/50">
+              <TableHead className="text-slate-400">Login</TableHead>
+              <TableHead className="text-slate-400">Senha</TableHead>
+              <TableHead className="text-slate-400">Classe</TableHead>
+              <TableHead className="text-slate-400">Nível</TableHead>
+              <TableHead className="text-slate-400">Rank</TableHead>
+              <TableHead className="text-slate-400">Senha do Banco</TableHead>
+              <TableHead className="text-slate-400 text-center">Status</TableHead>
+              <TableHead className="text-slate-400">Ações</TableHead>
             </TableRow>
-          ))}
-        </TableBody>
-      </Table>
+          </TableHeader>
+          <TableBody>
+            {filteredAccounts.map((account) => (
+              <TableRow key={account.id} className="border-slate-800 hover:bg-slate-900/50">
+                <TableCell className="text-slate-300">{account.login}</TableCell>
+                <TableCell className="text-slate-300 font-mono">{account.is_available ? account.password : '••••••••'}</TableCell>
+                <TableCell className="text-slate-300">{account.class}</TableCell>
+                <TableCell className="text-slate-300">{account.level}</TableCell>
+                <TableCell className="text-slate-300">{account.rank}</TableCell>
+                <TableCell className="text-slate-300 font-mono">{account.is_available ? account.password_bank : '••••••••'}</TableCell>
+                <TableCell className="text-center">
+                  <Button
+                    onClick={() => handleStatusChange(account)}
+                    className={`w-32 transition-colors ${
+                      account.is_available 
+                        ? 'bg-emerald-600 hover:bg-emerald-700 text-white border-0' 
+                        : 'bg-red-600 hover:bg-red-700 text-white border-0'
+                    }`}
+                    size="sm"
+                  >
+                    {account.is_available ? 'Disponível' : 'Indisponível'}
+                  </Button>
+                </TableCell>
+                <TableCell>
+                  <div className="flex items-center gap-2">
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      onClick={() => onEdit(account)}
+                      className="hover:bg-slate-800 text-slate-400 hover:text-slate-200"
+                    >
+                      <Pencil className="h-4 w-4" />
+                    </Button>
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      onClick={() => handleDelete(account.id)}
+                      className="hover:bg-slate-800 text-red-500 hover:text-red-600"
+                    >
+                      <Trash2 className="h-4 w-4" />
+                    </Button>
+                  </div>
+                </TableCell>
+              </TableRow>
+            ))}
+          </TableBody>
+        </Table>
+      </div>
     </div>
   );
 }
