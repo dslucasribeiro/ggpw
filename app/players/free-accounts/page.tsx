@@ -62,7 +62,6 @@ export default function FreeAccountsPage() {
   const handleCloseDialog = () => {
     setIsDialogOpen(false);
     setSelectedAccount(undefined);
-    fetchAccounts();
   };
 
   if (isLoading) {

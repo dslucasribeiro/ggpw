@@ -4,6 +4,7 @@ import { useState } from 'react';
 import { FreeAccount, CreateFreeAccount } from '@/types/free-accounts';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { useRouter } from 'next/navigation';
 import {
   Select,
   SelectContent,
@@ -24,6 +25,7 @@ const DEFAULT_CLASSES = ['WR', 'MG', 'EA', 'EP', 'WB', 'WF'];
 const RANKS = ['1', '2', '3', '4', '5'];
 
 export function FreeAccountForm({ account, onClose }: FreeAccountFormProps) {
+  const router = useRouter();
   const { ownerId } = useOwnerContext();
   const [formData, setFormData] = useState<CreateFreeAccount>({
     idOwner: ownerId || null,
@@ -109,6 +111,10 @@ export function FreeAccountForm({ account, onClose }: FreeAccountFormProps) {
         console.error('Erro ao atualizar conta:', error);
         return;
       }
+
+      onClose();
+      // Recarrega a página após salvar
+      window.location.reload();
     } else {
       const dataToSend = {
         ...formData,
@@ -123,9 +129,11 @@ export function FreeAccountForm({ account, onClose }: FreeAccountFormProps) {
         console.error('Erro ao criar conta:', error);
         return;
       }
-    }
 
-    onClose();
+      onClose();
+      // Recarrega a página após criar
+      window.location.reload();
+    }
   };
 
   const handleAddNewClass = () => {
