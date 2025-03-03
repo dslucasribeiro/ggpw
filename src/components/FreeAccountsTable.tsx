@@ -11,11 +11,18 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table';
-import { Pencil, Trash2, Image as ImageIcon } from 'lucide-react';
+import { Pencil, Trash2, Image as ImageIcon, Lock, Unlock } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useOwnerContext } from '@/contexts/OwnerContext';
 import { supabase } from '@/lib/supabase';
 import { useAccessControl } from '@/hooks/useAccessControl';
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+
+interface Player {
+  id: number;
+  nick: string;
+  special_access: boolean;
+}
 
 interface FreeAccountsTableProps {
   accounts: FreeAccount[];
@@ -30,12 +37,51 @@ export function FreeAccountsTable({ accounts: initialAccounts, onEdit }: FreeAcc
   const [accounts, setAccounts] = useState(initialAccounts);
   const [showError, setShowError] = useState(false);
   const [selectedAccount, setSelectedAccount] = useState<FreeAccount | null>(null);
+  const [isAccessModalOpen, setIsAccessModalOpen] = useState(false);
+  const [players, setPlayers] = useState<Player[]>([]);
 
   useEffect(() => {
     if (!hasAccess && !loading) {
       setShowError(true);
     }
   }, [hasAccess, loading]);
+
+  const fetchPlayers = async () => {
+    if (!ownerId) return;
+    
+    try {
+      const { data, error } = await supabase
+        .from('players')
+        .select('id, nick, special_access')
+        .eq('idOwner', ownerId)
+        .order('nick');
+
+      if (error) throw error;
+      setPlayers(data || []);
+    } catch (error) {
+      console.error('Erro ao buscar players:', error);
+    }
+  };
+
+  const handleAccessClick = async (playerId: number, newAccessState: boolean) => {
+    try {
+      const { error } = await supabase
+        .from('players')
+        .update({ special_access: newAccessState })
+        .eq('id', playerId)
+        .eq('idOwner', ownerId);
+
+      if (error) throw error;
+
+      setPlayers(players.map(player => 
+        player.id === playerId 
+          ? { ...player, special_access: newAccessState }
+          : player
+      ));
+    } catch (error) {
+      console.error('Erro ao atualizar acesso:', error);
+    }
+  };
 
   if (loading) {
     return <div>Carregando...</div>;
@@ -152,6 +198,10 @@ export function FreeAccountsTable({ accounts: initialAccounts, onEdit }: FreeAcc
             Nova Conta
           </Button>
           <Button
+            onClick={() => {
+              setIsAccessModalOpen(true);
+              fetchPlayers();
+            }}
             size="sm"
             className="bg-blue-600 hover:bg-blue-700 text-white"
           >
@@ -159,6 +209,58 @@ export function FreeAccountsTable({ accounts: initialAccounts, onEdit }: FreeAcc
           </Button>
         </div>
       </div>
+
+      <Dialog open={isAccessModalOpen} onOpenChange={setIsAccessModalOpen}>
+        <DialogContent className="bg-slate-900 text-white border-slate-800">
+          <DialogHeader>
+            <DialogTitle className="text-white">Gerenciar Acesso aos Players</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div className="max-h-[400px] overflow-y-auto">
+              <Table>
+                <TableHeader>
+                  <TableRow className="border-slate-800 hover:bg-slate-900/50">
+                    <TableHead className="text-slate-400">Nick</TableHead>
+                    <TableHead className="text-slate-400">Status</TableHead>
+                    <TableHead className="text-slate-400">Ação</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {players.map((player) => (
+                    <TableRow key={player.id} className="border-slate-800 hover:bg-slate-900/50">
+                      <TableCell className="text-slate-300">{player.nick}</TableCell>
+                      <TableCell className="text-slate-300">
+                        {player.special_access ? 'Acesso Liberado' : 'Sem Acesso'}
+                      </TableCell>
+                      <TableCell>
+                        {player.special_access ? (
+                          <Button
+                            onClick={() => handleAccessClick(player.id, false)}
+                            className="bg-red-600 hover:bg-red-700 text-white"
+                            size="sm"
+                          >
+                            <Lock className="h-4 w-4 mr-2" />
+                            Bloquear
+                          </Button>
+                        ) : (
+                          <Button
+                            onClick={() => handleAccessClick(player.id, true)}
+                            className="bg-emerald-600 hover:bg-emerald-700 text-white"
+                            size="sm"
+                          >
+                            <Unlock className="h-4 w-4 mr-2" />
+                            Liberar Acesso
+                          </Button>
+                        )}
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
 
       <div>
         <Table>
