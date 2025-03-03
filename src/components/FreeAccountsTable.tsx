@@ -29,6 +29,7 @@ export function FreeAccountsTable({ accounts: initialAccounts, onEdit }: FreeAcc
   const [previewImage, setPreviewImage] = useState<string | null>(null);
   const [accounts, setAccounts] = useState(initialAccounts);
   const [showError, setShowError] = useState(false);
+  const [selectedAccount, setSelectedAccount] = useState<FreeAccount | null>(null);
 
   useEffect(() => {
     if (!hasAccess && !loading) {
@@ -93,6 +94,44 @@ export function FreeAccountsTable({ accounts: initialAccounts, onEdit }: FreeAcc
     } catch (error) {
       console.error('Erro ao excluir conta:', error);
     }
+  };
+
+  const handleDeleteImage = async () => {
+    if (!selectedAccount?.image_url) return;
+
+    try {
+      // Extrai o nome do arquivo da URL
+      const fileName = selectedAccount.image_url.split('/').pop();
+      if (!fileName) return;
+
+      // Remove a imagem do bucket
+      const { error: storageError } = await supabase.storage
+        .from('print_account')
+        .remove([fileName]);
+
+      if (storageError) throw storageError;
+
+      // Atualiza o registro no banco removendo a URL da imagem
+      const { error: dbError } = await supabase
+        .from('free_accounts')
+        .update({ image_url: null })
+        .eq('id', selectedAccount.id)
+        .eq('idOwner', ownerId);
+
+      if (dbError) throw dbError;
+
+      // Fecha o modal e recarrega a página
+      setPreviewImage(null);
+      setSelectedAccount(null);
+      window.location.reload();
+    } catch (error) {
+      console.error('Erro ao excluir imagem:', error);
+    }
+  };
+
+  const handleImageClick = (account: FreeAccount) => {
+    setSelectedAccount(account);
+    setPreviewImage(account.image_url);
   };
 
   return (
@@ -160,7 +199,7 @@ export function FreeAccountsTable({ accounts: initialAccounts, onEdit }: FreeAcc
                 </TableCell>
                 <TableCell>
                   {account.image_url ? (
-                    <div className="relative w-12 h-12 cursor-pointer" onClick={() => setPreviewImage(account.image_url)}>
+                    <div className="relative w-12 h-12 cursor-pointer" onClick={() => handleImageClick(account)}>
                       <img 
                         src={account.image_url} 
                         alt={`Print da conta ${account.login}`}
@@ -201,22 +240,38 @@ export function FreeAccountsTable({ accounts: initialAccounts, onEdit }: FreeAcc
       {previewImage && (
         <div 
           className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50"
-          onClick={() => setPreviewImage(null)}
+          onClick={() => {
+            setPreviewImage(null);
+            setSelectedAccount(null);
+          }}
         >
-          <div className="relative max-w-4xl max-h-[90vh]">
+          <div className="relative max-w-4xl max-h-[90vh]" onClick={(e) => e.stopPropagation()}>
             <img 
               src={previewImage} 
               alt="Print da conta em tamanho maior"
               className="max-w-full max-h-[90vh] object-contain"
             />
-            <button
-              className="absolute top-4 right-4 bg-black bg-opacity-50 text-white rounded-full p-2 hover:bg-opacity-75"
-              onClick={() => setPreviewImage(null)}
-            >
-              <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-              </svg>
-            </button>
+            <div className="absolute top-4 right-4 flex gap-2">
+              <button
+                className="bg-red-600 text-white rounded-full p-2 hover:bg-red-700"
+                onClick={handleDeleteImage}
+                title="Excluir imagem"
+              >
+                <Trash2 className="h-6 w-6" />
+              </button>
+              <button
+                className="bg-black bg-opacity-50 text-white rounded-full p-2 hover:bg-opacity-75"
+                onClick={() => {
+                  setPreviewImage(null);
+                  setSelectedAccount(null);
+                }}
+                title="Fechar"
+              >
+                <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
+            </div>
           </div>
         </div>
       )}
