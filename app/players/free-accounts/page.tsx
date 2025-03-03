@@ -49,7 +49,7 @@ export default function FreeAccountsPage() {
     fetchAccounts();
   }, [ownerId]);
 
-  const handleEdit = (account: FreeAccount) => {
+  const handleEdit = (account: FreeAccount | undefined) => {
     setSelectedAccount(account);
     setIsDialogOpen(true);
   };
@@ -73,7 +73,6 @@ export default function FreeAccountsPage() {
     <div className="p-6 space-y-6">
       <div className="flex items-center justify-between">
         <h1 className="text-2xl font-bold">Contas 0800</h1>
-        <Button onClick={handleCreate}>Nova Conta</Button>
       </div>
 
       <FreeAccountsTable

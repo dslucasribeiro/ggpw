@@ -93,29 +93,15 @@ export function FreeAccountForm({ account, onClose }: FreeAccountFormProps) {
     }
 
     if (account?.id) {
-      // Se estiver editando, envia apenas os campos que foram alterados
-      const changedFields: Record<string, any> = {};
-      
-      Object.keys(formData).forEach((key) => {
-        const k = key as keyof typeof formData;
-        if (formData[k] !== account[k]) {
-          changedFields[key] = formData[k];
-        }
-      });
-
-      if (imageUrl !== account.image_url) {
-        changedFields.image_url = imageUrl;
-      }
-
-      // Se não houver alterações, não faz nada
-      if (Object.keys(changedFields).length === 0) {
-        onClose();
-        return;
-      }
+      // Se estiver editando
+      const updateData = {
+        ...formData,
+        image_url: imageUrl
+      };
 
       const { error } = await supabase
         .from('free_accounts')
-        .update(changedFields)
+        .update(updateData)
         .eq('id', account.id)
         .eq('idOwner', ownerId);
 

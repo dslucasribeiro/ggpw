@@ -19,7 +19,7 @@ import { useAccessControl } from '@/hooks/useAccessControl';
 
 interface FreeAccountsTableProps {
   accounts: FreeAccount[];
-  onEdit: (account: FreeAccount) => void;
+  onEdit: (account: FreeAccount | undefined) => void;
 }
 
 export function FreeAccountsTable({ accounts: initialAccounts, onEdit }: FreeAccountsTableProps) {
@@ -97,13 +97,28 @@ export function FreeAccountsTable({ accounts: initialAccounts, onEdit }: FreeAcc
 
   return (
     <div className="space-y-4">
-      <div className="flex items-center space-x-4 mb-6">
+      <div className="flex items-center justify-between mb-6">
         <Input
           placeholder="Buscar por login, classe ou rank..."
           value={searchTerm}
           onChange={(e) => setSearchTerm(e.target.value)}
           className="max-w-sm bg-transparent border-slate-800 text-slate-200 placeholder:text-slate-500"
         />
+        <div className="flex gap-3">
+          <Button
+            onClick={() => onEdit(undefined)}
+            className="bg-blue-600 hover:bg-blue-700 text-white"
+            size="sm"
+          >
+            Nova Conta
+          </Button>
+          <Button
+            size="sm"
+            className="bg-blue-600 hover:bg-blue-700 text-white"
+          >
+            Gerenciar Acesso
+          </Button>
+        </div>
       </div>
 
       <div>
