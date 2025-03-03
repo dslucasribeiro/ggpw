@@ -132,6 +132,7 @@ export function FreeAccountsTable({ accounts: initialAccounts, onEdit }: FreeAcc
               <TableHead className="text-slate-400">Rank</TableHead>
               <TableHead className="text-slate-400">Senha do Banco</TableHead>
               <TableHead className="text-slate-400 text-center">Status</TableHead>
+              <TableHead className="text-slate-400">Print Conta</TableHead>
               <TableHead className="text-slate-400">Ações</TableHead>
             </TableRow>
           </TableHeader>
@@ -158,6 +159,21 @@ export function FreeAccountsTable({ accounts: initialAccounts, onEdit }: FreeAcc
                   </Button>
                 </TableCell>
                 <TableCell>
+                  {account.image_url ? (
+                    <div className="relative w-12 h-12 cursor-pointer" onClick={() => setPreviewImage(account.image_url)}>
+                      <img 
+                        src={account.image_url} 
+                        alt={`Print da conta ${account.login}`}
+                        className="w-full h-full object-cover rounded"
+                      />
+                    </div>
+                  ) : (
+                    <div className="w-12 h-12 bg-slate-800 rounded flex items-center justify-center">
+                      <ImageIcon className="w-6 h-6 text-slate-400" />
+                    </div>
+                  )}
+                </TableCell>
+                <TableCell>
                   <div className="flex items-center gap-2">
                     <Button
                       variant="ghost"
@@ -182,6 +198,28 @@ export function FreeAccountsTable({ accounts: initialAccounts, onEdit }: FreeAcc
           </TableBody>
         </Table>
       </div>
+      {previewImage && (
+        <div 
+          className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50"
+          onClick={() => setPreviewImage(null)}
+        >
+          <div className="relative max-w-4xl max-h-[90vh]">
+            <img 
+              src={previewImage} 
+              alt="Print da conta em tamanho maior"
+              className="max-w-full max-h-[90vh] object-contain"
+            />
+            <button
+              className="absolute top-4 right-4 bg-black bg-opacity-50 text-white rounded-full p-2 hover:bg-opacity-75"
+              onClick={() => setPreviewImage(null)}
+            >
+              <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+              </svg>
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
