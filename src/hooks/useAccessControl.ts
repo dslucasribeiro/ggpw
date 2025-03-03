@@ -21,7 +21,7 @@ export function useAccessControl() {
       try {
         const { data, error } = await supabase
           .from('players')
-          .select('posicao')
+          .select('posicao, special_access')
           .eq('email', user.email)
           .single();
 
@@ -29,8 +29,8 @@ export function useAccessControl() {
           console.error('Error checking access:', error);
           setHasAccess(false);
         } else {
-          // Verifica se data.posicao existe e é exatamente igual a 'Marechal'
-          setHasAccess(data?.posicao === 'Marechal');
+          // Verifica se é Marechal OU tem special_access
+          setHasAccess(data?.posicao === 'Marechal' || data?.special_access === true);
         }
       } catch (error) {
         console.error('Error in useAccessControl:', error);
