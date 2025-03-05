@@ -16,7 +16,7 @@ interface Player {
   idOwner: number;
 }
 
-const DEFAULT_CLASSES = ['WR', 'MG', 'EA', 'EP', 'WB', 'WF'] as const;
+const DEFAULT_CLASSES = ['WR', 'MG', 'EA', 'EP', 'WB', 'WF'];
 const POSICOES = ['Marechal', 'General', 'Major', 'Capitão', 'Soldado', 'Lider de PT'] as const;
 const NIVEL_RANGES = [
   { min: 70, max: 80, label: '70-80' },
@@ -35,7 +35,7 @@ export function Players() {
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
   const [editingPlayer, setEditingPlayer] = useState<Player | null>(null);
-  const [allClasses, setAllClasses] = useState<string[]>(DEFAULT_CLASSES);
+  const [allClasses, setAllClasses] = useState<string[]>([...DEFAULT_CLASSES]);
   const { ownerId, loading: ownerLoading } = useOwnerContext();
   const [newPlayer, setNewPlayer] = useState<Omit<Player, 'id' | 'created_at' | 'idOwner'>>({
     nick: '',
