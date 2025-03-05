@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { MagnifyingGlassIcon } from '@heroicons/react/24/outline';
-import { PencilIcon, TrashIcon, XMarkIcon } from '@heroicons/react/24/solid';
+import { PencilIcon, TrashIcon, XMarkIcon, PlusIcon, MinusIcon } from '@heroicons/react/24/solid';
 import { supabase } from '../lib/supabase';
 import { useOwnerContext } from '@/contexts/OwnerContext';
 
@@ -35,6 +35,8 @@ export function Players() {
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
   const [editingPlayer, setEditingPlayer] = useState<Player | null>(null);
+  const [customClasses, setCustomClasses] = useState<string[]>([]);
+  const [newCustomClass, setNewCustomClass] = useState('');
   const { ownerId, loading: ownerLoading } = useOwnerContext();
   const [newPlayer, setNewPlayer] = useState<Omit<Player, 'id' | 'created_at' | 'idOwner'>>({
     nick: '',
@@ -327,15 +329,45 @@ export function Players() {
               
               <div>
                 <label className="block text-gray-400 mb-1">Classe</label>
-                <select
-                  value={newPlayer.classe}
-                  onChange={(e) => setNewPlayer({ ...newPlayer, classe: e.target.value })}
-                  className="w-full bg-[#0B1120] text-white px-4 py-2 rounded-lg"
-                >
-                  {CLASSES.map((classe) => (
-                    <option key={classe} value={classe}>{classe}</option>
-                  ))}
-                </select>
+                <div className="flex gap-2">
+                  <div className="relative w-full">
+                    <select
+                      value={newPlayer.classe}
+                      onChange={(e) => setNewPlayer({ ...newPlayer, classe: e.target.value })}
+                      className="w-full bg-[#0B1120] text-white px-4 py-2 rounded-lg appearance-none"
+                    >
+                      {[...CLASSES, ...customClasses].map((classe) => (
+                        <option key={classe} value={classe} className="relative">
+                          {classe}
+                        </option>
+                      ))}
+                    </select>
+                    {customClasses.includes(newPlayer.classe) && (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setCustomClasses(customClasses.filter(c => c !== newPlayer.classe));
+                          setNewPlayer({ ...newPlayer, classe: CLASSES[0] });
+                        }}
+                        className="absolute right-10 top-1/2 -translate-y-1/2 text-gray-400 hover:text-red-400"
+                      >
+                        <MinusIcon className="h-4 w-4" />
+                      </button>
+                    )}
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const classe = prompt('Digite o nome da nova classe:');
+                      if (classe && !CLASSES.includes(classe as any) && !customClasses.includes(classe)) {
+                        setCustomClasses([...customClasses, classe]);
+                      }
+                    }}
+                    className="bg-[#1A1F2E] hover:bg-[#2A2F3E] text-gray-400 px-3 rounded-lg flex items-center justify-center"
+                  >
+                    <PlusIcon className="h-5 w-5" />
+                  </button>
+                </div>
               </div>
               
               <div>
@@ -415,15 +447,45 @@ export function Players() {
               
               <div>
                 <label className="block text-gray-400 mb-1">Classe</label>
-                <select
-                  value={editingPlayer.classe}
-                  onChange={(e) => setEditingPlayer({ ...editingPlayer, classe: e.target.value })}
-                  className="w-full bg-[#0B1120] text-white px-4 py-2 rounded-lg"
-                >
-                  {CLASSES.map((classe) => (
-                    <option key={classe} value={classe}>{classe}</option>
-                  ))}
-                </select>
+                <div className="flex gap-2">
+                  <div className="relative w-full">
+                    <select
+                      value={editingPlayer.classe}
+                      onChange={(e) => setEditingPlayer({ ...editingPlayer, classe: e.target.value })}
+                      className="w-full bg-[#0B1120] text-white px-4 py-2 rounded-lg appearance-none"
+                    >
+                      {[...CLASSES, ...customClasses].map((classe) => (
+                        <option key={classe} value={classe} className="relative">
+                          {classe}
+                        </option>
+                      ))}
+                    </select>
+                    {customClasses.includes(editingPlayer.classe) && (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setCustomClasses(customClasses.filter(c => c !== editingPlayer.classe));
+                          setEditingPlayer({ ...editingPlayer, classe: CLASSES[0] });
+                        }}
+                        className="absolute right-10 top-1/2 -translate-y-1/2 text-gray-400 hover:text-red-400"
+                      >
+                        <MinusIcon className="h-4 w-4" />
+                      </button>
+                    )}
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const classe = prompt('Digite o nome da nova classe:');
+                      if (classe && !CLASSES.includes(classe as any) && !customClasses.includes(classe)) {
+                        setCustomClasses([...customClasses, classe]);
+                      }
+                    }}
+                    className="bg-[#1A1F2E] hover:bg-[#2A2F3E] text-gray-400 px-3 rounded-lg flex items-center justify-center"
+                  >
+                    <PlusIcon className="h-5 w-5" />
+                  </button>
+                </div>
               </div>
               
               <div>
