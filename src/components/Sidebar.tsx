@@ -2,7 +2,7 @@
 
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { Users, Settings, ChevronLeft, ChevronRight, ShieldAlert, Calendar, Coins, LogOut } from 'lucide-react';
+import { Users, Settings, ChevronLeft, ChevronRight, ShieldAlert, Calendar, Coins, LogOut, GraduationCap } from 'lucide-react';
 import clsx from 'clsx';
 import { useState, useEffect } from 'react';
 import { useSettings } from '@/store/settings';
@@ -21,6 +21,12 @@ const menuItems = [
       { name: 'Lista de Players', href: '/players' },
       { name: 'Contas 0800', href: '/players/free-accounts' }
     ]
+  },
+  { 
+    id: 'tutoria',
+    name: 'Tutoria',
+    href: '/tutoria',
+    icon: GraduationCap
   },
   { 
     id: 'guerra',
@@ -73,7 +79,8 @@ const defaultMenuSettings: MenuSettings = {
   players: true,
   guerra: true,
   eventos: true,
-  bank: true
+  bank: true,
+  tutoria: true
 };
 
 export default function Sidebar() {
