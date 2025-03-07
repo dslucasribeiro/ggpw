@@ -35,6 +35,8 @@ interface TutorialContent {
   description: string;
   video_url: string | null;
   order_index: number;
+  created_at: string;
+  updated_at: string;
 }
 
 function ClassCard({ classe, selected, onClick }: ClassCardProps) {
@@ -108,11 +110,44 @@ function ContentForm({
     video_url: content?.video_url || ''
   });
 
+  const [isSubmitting, setIsSubmitting] = useState(false);
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    
+    // Validação básica
+    if (!formData.title.trim()) {
+      return;
+    }
+    if (!formData.description.trim()) {
+      return;
+    }
+
+    setIsSubmitting(true);
+    try {
+      await onSave({
+        ...formData,
+        // Se video_url estiver vazio, enviar null
+        video_url: formData.video_url.trim() || null
+      });
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  const handleVideoUrlChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const url = e.target.value;
+    // Aceita URLs do YouTube no formato padrão ou compartilhado
+    if (url && !url.match(/^(https?:\/\/)?(www\.)?(youtube\.com|youtu\.be)\/.+$/)) {
+      e.target.setCustomValidity('Por favor, insira uma URL válida do YouTube');
+    } else {
+      e.target.setCustomValidity('');
+    }
+    setFormData({ ...formData, video_url: url });
+  };
+
   return (
-    <form onSubmit={(e) => {
-      e.preventDefault();
-      onSave(formData);
-    }} className="bg-[#1A1F2E] rounded-lg p-6 space-y-4">
+    <form onSubmit={handleSubmit} className="bg-[#1A1F2E] rounded-lg p-6 space-y-4">
       <div className="space-y-2">
         <label className="block text-sm font-medium text-gray-400">
           Título
@@ -123,6 +158,9 @@ function ContentForm({
           onChange={(e) => setFormData({ ...formData, title: e.target.value })}
           className="w-full px-3 py-2 bg-[#151A27] rounded border border-gray-700 text-white"
           required
+          minLength={3}
+          maxLength={255}
+          placeholder="Digite o título do conteúdo..."
         />
       </div>
 
@@ -135,6 +173,8 @@ function ContentForm({
           onChange={(e) => setFormData({ ...formData, description: e.target.value })}
           className="w-full px-3 py-2 bg-[#151A27] rounded border border-gray-700 text-white h-32"
           required
+          minLength={10}
+          placeholder="Descreva o conteúdo..."
         />
       </div>
 
@@ -145,9 +185,10 @@ function ContentForm({
         <input
           type="url"
           value={formData.video_url}
-          onChange={(e) => setFormData({ ...formData, video_url: e.target.value })}
+          onChange={handleVideoUrlChange}
           className="w-full px-3 py-2 bg-[#151A27] rounded border border-gray-700 text-white"
           placeholder="https://www.youtube.com/watch?v=..."
+          pattern="^(https?:\/\/)?(www\.)?(youtube\.com|youtu\.be)\/.+$"
         />
       </div>
 
@@ -156,14 +197,16 @@ function ContentForm({
           type="button"
           onClick={onCancel}
           className="px-4 py-2 text-gray-400 hover:text-white transition-colors"
+          disabled={isSubmitting}
         >
           Cancelar
         </button>
         <button
           type="submit"
-          className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded transition-colors"
+          className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+          disabled={isSubmitting}
         >
-          Salvar
+          {isSubmitting ? 'Salvando...' : 'Salvar'}
         </button>
       </div>
     </form>
@@ -379,6 +422,8 @@ export function Tutoria() {
     if (!selectedClass || !ownerId) return;
 
     try {
+      const now = new Date().toISOString();
+
       if (editingContent) {
         const { error } = await supabase
           .from('tutorial_contents')
@@ -386,9 +431,10 @@ export function Tutoria() {
             title: contentData.title,
             description: contentData.description,
             video_url: contentData.video_url || null,
-            updated_at: new Date().toISOString()
+            updated_at: now
           })
-          .eq('id', editingContent.id);
+          .eq('id', editingContent.id)
+          .eq('idOwner', ownerId); // Garantir que só atualiza se for o owner correto
 
         if (error) throw error;
       } else {
@@ -400,13 +446,15 @@ export function Tutoria() {
             description: contentData.description,
             video_url: contentData.video_url || null,
             order_index: contents.length,
-            idOwner: ownerId
+            idOwner: ownerId,
+            created_at: now,
+            updated_at: now
           }]);
 
         if (error) throw error;
       }
 
-      fetchContents();
+      await fetchContents();
       setEditingContent(null);
       setIsAddingContent(false);
     } catch (error) {
@@ -415,15 +463,18 @@ export function Tutoria() {
   };
 
   const handleDeleteContent = async (id: number) => {
+    if (!ownerId) return;
+    
     try {
       const { error } = await supabase
         .from('tutorial_contents')
         .delete()
-        .eq('id', id);
+        .eq('id', id)
+        .eq('idOwner', ownerId); // Garantir que só deleta se for o owner correto
 
       if (error) throw error;
 
-      fetchContents();
+      await fetchContents();
     } catch (error) {
       console.error('Error deleting content:', error);
     }
