@@ -175,6 +175,62 @@ function getYoutubeId(url: string) {
   return match ? match[1] : url.split('/').pop();
 }
 
+function TutorSelector({ 
+  players,
+  onSelect, 
+  onCancel 
+}: { 
+  players: Player[];
+  onSelect: (playerId: number) => void; 
+  onCancel: () => void;
+}) {
+  const [searchTerm, setSearchTerm] = useState('');
+
+  const filteredPlayers = players.filter(player => 
+    player.nick.toLowerCase().includes(searchTerm.toLowerCase())
+  );
+
+  return (
+    <div className="bg-[#1A1F2E] rounded-lg p-5 space-y-4 max-w-2xl">
+      <div className="space-y-2">
+        <label className="block text-sm font-medium text-gray-400">
+          Buscar Jogador
+        </label>
+        <input
+          type="text"
+          value={searchTerm}
+          onChange={(e) => setSearchTerm(e.target.value)}
+          className="w-full px-3 py-2 bg-[#151A27] rounded border border-gray-700 text-white text-sm"
+          placeholder="Digite o nick do jogador..."
+        />
+      </div>
+
+      <div className="max-h-52 overflow-y-auto space-y-1.5">
+        {filteredPlayers.map(player => (
+          <button
+            key={player.id}
+            onClick={() => onSelect(player.id)}
+            className="w-full text-left px-4 py-2 hover:bg-[#151A27] rounded transition-colors flex items-center text-sm group"
+          >
+            <span className="text-white font-medium min-w-[120px]">{player.nick}</span>
+            <span className="text-gray-400 min-w-[45px] ml-6 text-left">{player.classe}</span>
+            <span className="text-gray-400 min-w-[80px] text-right ml-4 text-right">Nível {player.nivel}</span>
+          </button>
+        ))}
+      </div>
+
+      <div className="flex justify-end pt-2">
+        <button
+          onClick={onCancel}
+          className="px-4 py-2 text-sm text-gray-400 hover:text-white transition-colors"
+        >
+          Cancelar
+        </button>
+      </div>
+    </div>
+  );
+}
+
 export function Tutoria() {
   const [selectedClass, setSelectedClass] = useState<string | null>(null);
   const [players, setPlayers] = useState<Player[]>([]);
@@ -399,41 +455,31 @@ export function Tutoria() {
               </h2>
               <button
                 onClick={() => setIsEditingTutor(!isEditingTutor)}
-                className="p-2 text-gray-400 hover:text-white transition-colors"
-                title={getTutorNick(selectedClass) === 'Não definido' ? 'Definir tutor' : 'Alterar tutor'}
+                className="text-gray-400 hover:text-white transition-colors flex items-center gap-2"
               >
-                <PencilIcon className="w-5 h-5" />
+                {isEditingTutor ? (
+                  "Cancelar"
+                ) : (
+                  <>
+                    <PencilIcon className="w-4 h-4" />
+                    Definir Tutor
+                  </>
+                )}
               </button>
             </div>
 
-            {isEditingTutor ? (
-              <div className="space-y-4">
-                <p className="text-gray-400 mb-2">Selecione o tutor:</p>
-                <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-2">
-                  {players.map((player) => (
-                    <button
-                      key={player.id}
-                      onClick={() => handleTutorSelect(player.id)}
-                      className="text-left px-3 py-2 rounded bg-[#1A1F2E] hover:bg-[#252B3B] transition-colors"
-                    >
-                      <div className="text-white">{player.nick}</div>
-                      <div className="text-sm text-gray-400">{player.classe} - {player.posicao}</div>
-                    </button>
-                  ))}
-                </div>
-              </div>
-            ) : (
-              <div>
-                <p className="text-gray-400">
-                  Tutor de classe: <span className="text-blue-400">{getTutorNick(selectedClass)}</span>
-                </p>
-                {getTutorNick(selectedClass) === 'Não definido' && (
-                  <p className="text-sm text-gray-500 mt-2">
-                    Clique no ícone de edição para definir um tutor para esta classe
-                  </p>
-                )}
-              </div>
-            )}
+            <div className="mb-6">
+              <p className="text-gray-400">
+                Tutor da classe: <span className="text-white font-medium">{getTutorNick(selectedClass)}</span>
+              </p>
+              {isEditingTutor && (
+                <TutorSelector 
+                  players={players}
+                  onSelect={handleTutorSelect}
+                  onCancel={() => setIsEditingTutor(false)}
+                />
+              )}
+            </div>
           </div>
 
           <div className="space-y-4">
