@@ -2,7 +2,7 @@
 
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { Users, Settings, ChevronLeft, ChevronRight, ShieldAlert, Calendar, Coins, LogOut, GraduationCap } from 'lucide-react';
+import { Users, Settings, ChevronLeft, ChevronRight, ShieldAlert, Calendar, Coins, LogOut, GraduationCap, Store } from 'lucide-react';
 import clsx from 'clsx';
 import { useState, useEffect } from 'react';
 import { useSettings } from '@/store/settings';
@@ -27,6 +27,12 @@ const menuItems = [
     name: 'Tutoria',
     href: '/tutoria',
     icon: GraduationCap
+  },
+  { 
+    id: 'comercio',
+    name: 'Comércio',
+    href: '/comercio',
+    icon: Store
   },
   { 
     id: 'guerra',
@@ -80,7 +86,8 @@ const defaultMenuSettings: MenuSettings = {
   guerra: true,
   eventos: true,
   bank: true,
-  tutoria: true
+  tutoria: true,
+  comercio: true
 };
 
 export default function Sidebar() {
