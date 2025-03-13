@@ -10,6 +10,10 @@ const classes = [
   { id: 'ep', name: 'EP', description: 'Comércio para EP' },
   { id: 'wb', name: 'WB', description: 'Comércio para WB' },
   { id: 'wf', name: 'WF', description: 'Comércio para WF' },
+  { id: 'mc', name: 'MC', description: 'Comércio para MC' },
+  { id: 'psy', name: 'PSY', description: 'Comércio para PSY' },
+  { id: 'sk', name: 'SK', description: 'Comércio para SK' },
+  { id: 'ms', name: 'MS', description: 'Comércio para MS' },
 ];
 
 export default function Comercio() {

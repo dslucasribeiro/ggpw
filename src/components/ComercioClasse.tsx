@@ -14,7 +14,11 @@ const classNames: { [key: string]: string } = {
   'ea': 'EA',
   'ep': 'EP',
   'wb': 'WB',
-  'wf': 'WF'
+  'wf': 'WF',
+  'mc': 'MC',
+  'psy': 'PSY',
+  'sk': 'SK',
+  'ms': 'MS'
 };
 
 export default function ComercioClasse({ classe }: ComercioClasseProps) {
