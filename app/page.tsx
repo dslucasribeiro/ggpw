@@ -10,24 +10,35 @@ export default function LoginPage() {
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+  const [errorDetails, setErrorDetails] = useState('');
   const router = useRouter();
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
     setError('');
+    setErrorDetails('');
 
     try {
-      const { error } = await supabase.auth.signInWithPassword({
+      const { data, error } = await supabase.auth.signInWithPassword({
         email,
         password,
       });
 
-      if (error) throw error;
+      if (error) {
+        setError('Falha na autenticação');
+        setErrorDetails(error.message);
+        throw error;
+      }
+      
       router.push('/players');
-    } catch (error: unknown) {
-      console.error('Error:', error);
-      setError('Erro ao fazer login');
+    } catch (error: any) {
+      if (!errorDetails) {
+        setError('Erro ao fazer login');
+        if (error.message) {
+          setErrorDetails(error.message);
+        }
+      }
     } finally {
       setLoading(false);
     }
@@ -54,7 +65,8 @@ export default function LoginPage() {
         <form onSubmit={handleLogin} className="space-y-6">
           {error && (
             <div className="bg-red-500/10 border border-red-500 text-red-500 rounded-md p-3 text-sm">
-              {error}
+              <p className="font-medium">{error}</p>
+              {errorDetails && <p className="mt-1 text-xs">{errorDetails}</p>}
             </div>
           )}
 
