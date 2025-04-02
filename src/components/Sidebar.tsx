@@ -23,18 +23,6 @@ const menuItems = [
     ]
   },
   { 
-    id: 'tutoria',
-    name: 'Tutoria',
-    href: '/tutoria',
-    icon: GraduationCap
-  },
-  { 
-    id: 'comercio',
-    name: 'Comércio',
-    href: '/comercio',
-    icon: Store
-  },
-  { 
     id: 'guerra',
     name: 'Guerra', 
     href: '/war', 
@@ -63,6 +51,18 @@ const menuItems = [
       { name: 'GVG', href: '/events/gvg' },
       { name: 'TW', href: '/events/tw' },
     ]
+  },
+  { 
+    id: 'tutoria',
+    name: 'Tutoria',
+    href: '/tutoria',
+    icon: GraduationCap
+  },
+  { 
+    id: 'comercio',
+    name: 'Comércio',
+    href: '/comercio',
+    icon: Store
   },
   {
     id: 'bank',
